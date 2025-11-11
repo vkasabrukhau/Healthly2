@@ -15,12 +15,6 @@ const panelStyle = computed(() => ({
   transition: "transform 160ms ease-out",
 }));
 
-const features = [
-  "AI-aligned routines",
-  "Personalized hydration goals",
-  "Sleep-friendly reminders",
-];
-
 const aiSuggestions = [
   {
     title: "Gentle movement reset",
@@ -133,59 +127,19 @@ useSeoMeta({
       @pointerleave="handlePointerLeave"
     >
       <div class="hero__content">
-        <p class="eyebrow">Healthly preview</p>
         <h1>
-          Plan boldly before you log in.
-          <span>The dashboard is ready when you are.</span>
+          A tracker that integrates with your life and let's you be
+          <span>YOU</span>
         </h1>
         <p class="lede">
-          Explore the same surfaces you will see after Clerk authentication:
-          adaptive AI guidance, habit tiles, and trend overviews. When you are
-          ready, sign in and you will land directly on the protected dashboard.
+          Healthly is meant to integrate easily with your school's dining hall
+          system. The Gemini-enabled backend allows for adaptive dietary
+          guidance. Navigating nutrition has never been easier and healthly is
+          here to help.
         </p>
-        <div class="feature-pills">
-          <span v-for="feature in features" :key="feature">{{ feature }}</span>
-        </div>
         <NuxtLink class="btn btn--primary" :to="{ path: '/dashboard' }">
-          Sign in to open the dashboard
+          Sign In
         </NuxtLink>
-        <p class="hero__note">
-          No account yet? Continue scrolling—the public preview mirrors the
-          signed-in experience.
-        </p>
-      </div>
-
-      <div class="hero__panel" aria-label="Live dashboard preview">
-        <div class="panel__card" :style="panelStyle">
-          <header>
-            <p class="panel__eyebrow">Live tiles</p>
-            <h3>Tomorrow’s cadence</h3>
-          </header>
-          <dl class="panel__metrics">
-            <div>
-              <dt>Water</dt>
-              <dd>54 oz</dd>
-            </div>
-            <div>
-              <dt>Meals</dt>
-              <dd>3/4 planned</dd>
-            </div>
-            <div>
-              <dt>Sleep</dt>
-              <dd>7h 40m</dd>
-            </div>
-          </dl>
-          <div class="panel__timeline">
-            <span class="timeline-dot"></span>
-            <span class="timeline-dot"></span>
-            <span class="timeline-dot timeline-dot--active"></span>
-            <span class="timeline-dot"></span>
-          </div>
-          <p class="panel__footer">
-            Hover or move your cursor—this card tilts with you for a tactile
-            preview.
-          </p>
-        </div>
       </div>
     </section>
 
@@ -304,7 +258,6 @@ h1 span {
 .lede {
   font-size: 1.1rem;
   color: #d9d7d2;
-  max-width: 700px;
 }
 
 .hero {
