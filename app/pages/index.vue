@@ -1,0 +1,646 @@
+<script setup lang="ts">
+import { computed, ref } from "vue";
+
+const heroRef = ref<HTMLElement | null>(null);
+const accentPosition = ref({ x: 50, y: 50 });
+const panelTilt = ref({ x: 0, y: 0 });
+
+const heroStyle = computed(() => ({
+  "--accent-x": `${accentPosition.value.x}%`,
+  "--accent-y": `${accentPosition.value.y}%`,
+}));
+
+const panelStyle = computed(() => ({
+  transform: `rotateX(${panelTilt.value.x}deg) rotateY(${panelTilt.value.y}deg)`,
+  transition: "transform 160ms ease-out",
+}));
+
+const features = [
+  "AI-aligned routines",
+  "Personalized hydration goals",
+  "Sleep-friendly reminders",
+];
+
+const aiSuggestions = [
+  {
+    title: "Gentle movement reset",
+    detail: "Take a 12 min fascia flow to reduce afternoon slump.",
+    tag: "Energy",
+  },
+  {
+    title: "Smart meal timing",
+    detail: "Shift lunch 30 min earlier to stabilize glucose curve.",
+    tag: "Nutrition",
+  },
+  {
+    title: "Wind-down nudge",
+    detail: "Dim screens at 9:20 PM to protect tonight’s sleep score.",
+    tag: "Sleep",
+  },
+];
+
+const planningFocus = [
+  {
+    title: "Hydration & water",
+    metric: "64 oz logged",
+    goal: "Target: 80 oz",
+    description:
+      "Auto-adjusted reminders keep your intake steady without nagging.",
+    accent: "water",
+  },
+  {
+    title: "Meals & nutrition",
+    metric: "3 balanced meals",
+    goal: "Target: 4 touchpoints",
+    description: "Preview macros, ingredients, and mindful eating prompts.",
+    accent: "meals",
+  },
+  {
+    title: "Movement planning",
+    metric: "2 focused blocks",
+    goal: "Target: 5 per week",
+    description:
+      "Layer strength, cardio, and mobility into one adaptable view.",
+    accent: "movement",
+  },
+  {
+    title: "Recovery & calm",
+    metric: "7h 25m sleep avg",
+    goal: "Target: 7h 45m",
+    description:
+      "Track breath, rest, and low-effort wins so recovery stays protected.",
+    accent: "recovery",
+  },
+];
+
+const healthTrends = [
+  {
+    title: "Exercise consistency",
+    value: "5 sessions",
+    change: "+12% vs last week",
+    description: "Mix of interval rows, yoga, and walk commutes.",
+  },
+  {
+    title: "Sleep quality",
+    value: "7h 20m",
+    change: "+45m vs baseline",
+    description: "Back-to-back REM streak thanks to steady lights-out.",
+  },
+  {
+    title: "Mindful breaks",
+    value: "3 per day",
+    change: "+1 micro-rest",
+    description: "Short pauses keep HRV balanced when days stack up.",
+  },
+];
+
+const handlePointerMove = (event: PointerEvent) => {
+  if (!heroRef.value) {
+    return;
+  }
+  const rect = heroRef.value.getBoundingClientRect();
+  const relativeX = ((event.clientX - rect.left) / rect.width) * 100;
+  const relativeY = ((event.clientY - rect.top) / rect.height) * 100;
+  accentPosition.value = {
+    x: Math.min(Math.max(relativeX, 0), 100),
+    y: Math.min(Math.max(relativeY, 0), 100),
+  };
+  panelTilt.value = {
+    x: (0.5 - (event.clientY - rect.top) / rect.height) * 10,
+    y: ((event.clientX - rect.left) / rect.width - 0.5) * 10,
+  };
+};
+
+const handlePointerLeave = () => {
+  accentPosition.value = { x: 50, y: 50 };
+  panelTilt.value = { x: 0, y: 0 };
+};
+
+useSeoMeta({
+  title: "Healthly | Explore the dashboard before signing in",
+  description:
+    "Adaptive wellness planning with AI guidance, hydration tracking, and trend insights—all previewable before Clerk authentication.",
+});
+</script>
+
+<template>
+  <div class="page">
+    <section
+      ref="heroRef"
+      class="hero"
+      :style="heroStyle"
+      @pointermove="handlePointerMove"
+      @pointerleave="handlePointerLeave"
+    >
+      <div class="hero__content">
+        <p class="eyebrow">Healthly preview</p>
+        <h1>
+          Plan boldly before you log in.
+          <span>The dashboard is ready when you are.</span>
+        </h1>
+        <p class="lede">
+          Explore the same surfaces you will see after Clerk authentication:
+          adaptive AI guidance, habit tiles, and trend overviews. When you are
+          ready, sign in and you will land directly on the protected dashboard.
+        </p>
+        <div class="feature-pills">
+          <span v-for="feature in features" :key="feature">{{ feature }}</span>
+        </div>
+        <NuxtLink class="btn btn--primary" :to="{ path: '/dashboard' }">
+          Sign in to open the dashboard
+        </NuxtLink>
+        <p class="hero__note">
+          No account yet? Continue scrolling—the public preview mirrors the
+          signed-in experience.
+        </p>
+      </div>
+
+      <div class="hero__panel" aria-label="Live dashboard preview">
+        <div class="panel__card" :style="panelStyle">
+          <header>
+            <p class="panel__eyebrow">Live tiles</p>
+            <h3>Tomorrow’s cadence</h3>
+          </header>
+          <dl class="panel__metrics">
+            <div>
+              <dt>Water</dt>
+              <dd>54 oz</dd>
+            </div>
+            <div>
+              <dt>Meals</dt>
+              <dd>3/4 planned</dd>
+            </div>
+            <div>
+              <dt>Sleep</dt>
+              <dd>7h 40m</dd>
+            </div>
+          </dl>
+          <div class="panel__timeline">
+            <span class="timeline-dot"></span>
+            <span class="timeline-dot"></span>
+            <span class="timeline-dot timeline-dot--active"></span>
+            <span class="timeline-dot"></span>
+          </div>
+          <p class="panel__footer">
+            Hover or move your cursor—this card tilts with you for a tactile
+            preview.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="ai">
+      <div class="section-heading">
+        <p class="eyebrow">AI suggestion spotlight</p>
+        <h2>Healthly’s copilot nudges you with context.</h2>
+        <p>
+          Suggestions blend data from hydration, meals, and rest so you get a
+          single queue of priorities rather than juggling multiple apps.
+        </p>
+      </div>
+      <div class="ai__grid">
+        <article
+          v-for="suggestion in aiSuggestions"
+          :key="suggestion.title"
+          class="ai-card"
+        >
+          <p class="ai-card__tag">{{ suggestion.tag }}</p>
+          <h3>{{ suggestion.title }}</h3>
+          <p>{{ suggestion.detail }}</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="planning">
+      <div class="section-heading">
+        <p class="eyebrow">Separate planning lanes</p>
+        <h2>Water, meals, movement, recovery—each gets focused space.</h2>
+        <p>
+          Build plans at the pace you prefer. Healthly’s dashboard keeps every
+          lane aligned while letting you focus on one pillar at a time.
+        </p>
+      </div>
+      <div class="planning__grid">
+        <article
+          v-for="plan in planningFocus"
+          :key="plan.title"
+          class="planning-card"
+          :class="`planning-card--${plan.accent}`"
+        >
+          <p class="planning-card__label">{{ plan.title }}</p>
+          <p class="planning-card__metric">{{ plan.metric }}</p>
+          <p class="planning-card__goal">{{ plan.goal }}</p>
+          <p class="planning-card__description">{{ plan.description }}</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="trends">
+      <div class="section-heading">
+        <p class="eyebrow">Health trends</p>
+        <h2>See exercise, sleep, and calm at a glance.</h2>
+        <p>
+          Visualize what is improving before you share data with a coach. These
+          cards mirror the protected dashboard so the switch after sign-in is
+          seamless.
+        </p>
+      </div>
+      <div class="trends__grid">
+        <article
+          v-for="trend in healthTrends"
+          :key="trend.title"
+          class="trend-card"
+        >
+          <header>
+            <p class="trend-card__title">{{ trend.title }}</p>
+            <p class="trend-card__change">{{ trend.change }}</p>
+          </header>
+          <p class="trend-card__value">{{ trend.value }}</p>
+          <p class="trend-card__description">{{ trend.description }}</p>
+          <div class="trend-card__bar">
+            <span></span>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+</template>
+
+<style scoped>
+:global(body) {
+  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  margin: 0;
+  background: #05070a;
+  color: #f8f7f4;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 72px clamp(1.25rem, 5vw, 5rem) 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 0.78rem;
+  color: #ffb08f;
+  margin-bottom: 0.75rem;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  line-height: 1.08;
+  margin: 0 0 1rem;
+}
+
+h1 span {
+  color: #ff8367;
+}
+
+.lede {
+  font-size: 1.1rem;
+  color: #d9d7d2;
+  max-width: 700px;
+}
+
+.hero {
+  border-radius: 32px;
+  padding: clamp(2rem, 4vw, 4rem);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: clamp(2rem, 4vw, 4rem);
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(
+      circle at var(--accent-x, 50%) var(--accent-y, 50%),
+      rgba(255, 131, 103, 0.35),
+      transparent 55%
+    ),
+    linear-gradient(135deg, rgba(8, 9, 12, 0.9), rgba(13, 16, 20, 0.95));
+}
+
+.hero__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.feature-pills span {
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.95rem 1.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn--primary {
+  background: linear-gradient(120deg, #ff8367, #ffc083);
+  color: #111215;
+  box-shadow: 0 14px 40px rgba(255, 131, 103, 0.35);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:focus-visible {
+  outline: 3px solid #ffc083;
+  outline-offset: 2px;
+}
+
+.hero__note {
+  font-size: 0.9rem;
+  color: #b9b6af;
+}
+
+.hero__panel {
+  display: flex;
+  justify-content: center;
+}
+
+.panel__card {
+  width: min(440px, 100%);
+  border-radius: 28px;
+  padding: 2rem;
+  background: linear-gradient(
+    135deg,
+    rgba(17, 19, 25, 0.95),
+    rgba(6, 7, 11, 0.95)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  will-change: transform;
+}
+
+.panel__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.7rem;
+  color: #ffb08f;
+  margin: 0 0 0.25rem;
+}
+
+.panel__card h3 {
+  margin: 0 0 1.5rem;
+}
+
+.panel__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+
+.panel__metrics dt {
+  font-size: 0.85rem;
+  color: #b8b5ad;
+}
+
+.panel__metrics dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.4rem;
+}
+
+.panel__timeline {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.timeline-dot--active {
+  width: 32px;
+  background: linear-gradient(90deg, #ff8367, #ffc083);
+}
+
+.panel__footer {
+  font-size: 0.85rem;
+  color: #b3b0a8;
+  margin: 0;
+}
+
+.section-heading h2 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.section-heading p {
+  margin: 0;
+  color: #d9d7d2;
+  max-width: 640px;
+}
+
+.ai,
+.planning,
+.trends {
+  border-radius: 32px;
+  padding: clamp(2rem, 4vw, 3.5rem);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 9, 12, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.ai__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.ai-card {
+  border-radius: 20px;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ai-card__tag {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ffb08f;
+  margin: 0;
+}
+
+.ai-card h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.planning__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.planning-card {
+  border-radius: 22px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 14, 19, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.planning-card__label {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.planning-card__metric {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.planning-card__goal {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #c1beb8;
+}
+
+.planning-card__description {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #e3e0db;
+}
+
+.planning-card--water {
+  border-color: rgba(111, 202, 255, 0.35);
+}
+
+.planning-card--meals {
+  border-color: rgba(255, 195, 131, 0.35);
+}
+
+.planning-card--movement {
+  border-color: rgba(255, 131, 103, 0.45);
+}
+
+.planning-card--recovery {
+  border-color: rgba(198, 165, 255, 0.35);
+}
+
+.trends__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.trend-card {
+  border-radius: 22px;
+  padding: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 17, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.trend-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.trend-card__title {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.trend-card__change {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #9de4c5;
+}
+
+.trend-card__value {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.trend-card__description {
+  margin: 0;
+  color: #c2beb7;
+  flex: 1;
+}
+
+.trend-card__bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.trend-card__bar span {
+  display: block;
+  width: 78%;
+  height: 100%;
+  background: linear-gradient(90deg, #ff8367, #ffc083);
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding-top: 48px;
+    padding-bottom: 72px;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .panel__metrics {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .feature-pills span {
+    width: 100%;
+    text-align: center;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+</style>
