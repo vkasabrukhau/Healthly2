@@ -275,6 +275,9 @@ useSeoMeta({
         >
           {{ aiButtonLabel }}
         </button>
+        <NuxtLink class="btn btn--blue-coral btn--stack" to="/suggestions">
+          Open suggestions page
+        </NuxtLink>
       </article>
     </section>
 
@@ -436,6 +439,19 @@ useSeoMeta({
   box-shadow: 0 12px 32px rgba(255, 131, 103, 0.35);
 }
 
+.btn--blue-coral {
+  background: linear-gradient(120deg, #4facfe, #ff8367);
+  color: #ffffff;
+  box-shadow: 0 12px 32px rgba(79, 172, 254, 0.18);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.btn--blue-coral:focus,
+.btn--blue-coral:active {
+  outline: none;
+}
+
 .btn--secondary {
   background: rgba(255, 255, 255, 0.08);
   color: #f8f7f4;
@@ -444,6 +460,10 @@ useSeoMeta({
 
 .btn:hover:not(:disabled) {
   transform: translateY(-2px);
+}
+
+.btn--stack {
+  text-align: center;
 }
 
 .dashboard-grid {
