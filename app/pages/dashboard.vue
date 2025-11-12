@@ -2,33 +2,132 @@
 import { computed, reactive, ref, onMounted, watch } from "vue";
 import { useUser } from "#imports";
 
+definePageMeta({
+  middleware: [
+    // cast the named middleware to the NavigationGuard type so TS accepts the string name
+    "require-onboarding" as unknown as import("vue-router").NavigationGuard,
+  ],
+});
+
 // Core reactive state (empty/default) — replace/populate from real user data when available
-const dailyScore = ref(0);
+type MacroEntry = {
+  label: string;
+  consumed: number;
+  goal: number;
+  unit: string;
+};
 
-const macros = ref<
-  Array<{ label: string; consumed: number; goal: number; unit?: string }>
->([]); // Array of macros
+type MacroBreakdown = {
+  protein: number;
+  carbs: number;
+  fat: number;
+};
 
-const sleep = reactive({ hours: 0, quality: "", note: "" });
+type MealEntry = {
+  time: string;
+  name: string;
+  calories: number;
+  location: string;
+  date: string;
+  macros: MacroBreakdown;
+};
 
-const water = reactive({ consumed: 0, goal: 0 });
+type ActivityStatus = "Completed" | "Planned";
 
-const meals = ref<Array<{ time: string; name: string; calories: number }>>([]); // Array of meals
+type ActivityEntry = {
+  type: string;
+  duration: string;
+  date: string;
+  calories: number;
+  status: ActivityStatus;
+};
 
-const activities = ref<
-  Array<{ name: string; duration: string; calories: number }>
->([]); // Array of activities
+const dailyScore = ref(84);
+
+const macros = ref<MacroEntry[]>([
+  { label: "Saturated Fat", consumed: 12, goal: 20, unit: "g" },
+  { label: "Trans Fat", consumed: 1, goal: 2, unit: "g" },
+  { label: "Total Fat", consumed: 48, goal: 70, unit: "g" },
+  { label: "Cholesterol", consumed: 180, goal: 300, unit: "mg" },
+  { label: "Sodium", consumed: 2100, goal: 2300, unit: "mg" },
+  { label: "Carbs", consumed: 180, goal: 260, unit: "g" },
+  { label: "Protein", consumed: 92, goal: 120, unit: "g" },
+  { label: "Calcium", consumed: 850, goal: 1000, unit: "mg" },
+  { label: "Iron", consumed: 14, goal: 18, unit: "mg" },
+  { label: "Potassium", consumed: 3400, goal: 4700, unit: "mg" },
+  { label: "Calories", consumed: 1780, goal: 2200, unit: "kcal" },
+]);
+
+const sleep = reactive({
+  hours: 7.4,
+  quality: "Restorative",
+  note: "Fell asleep quickly after evening stretch routine.",
+});
+
+const water = reactive({ consumed: 72, goal: 90 });
+
+const today = new Date().toISOString().slice(0, 10);
+const meals = ref<MealEntry[]>([
+  {
+    time: "08:10",
+    date: today,
+    name: "Greek yogurt parfait",
+    calories: 320,
+    location: "Campus dining",
+    macros: { protein: 24, carbs: 38, fat: 9 },
+  },
+  {
+    time: "12:35",
+    date: today,
+    name: "Roasted salmon bowl",
+    calories: 610,
+    location: "Fresh Kitchen",
+    macros: { protein: 42, carbs: 48, fat: 22 },
+  },
+  {
+    time: "15:10",
+    date: today,
+    name: "Protein shake",
+    calories: 240,
+    location: "Rec center bar",
+    macros: { protein: 30, carbs: 22, fat: 6 },
+  },
+]);
+
+const activities = ref<ActivityEntry[]>([
+  {
+    type: "Tempo run",
+    duration: "32 min",
+    date: new Date().toISOString().slice(0, 10),
+    calories: 310,
+    status: "Completed",
+  },
+  {
+    type: "Mobility flow",
+    duration: "18 min",
+    date: new Date(Date.now() + 3600 * 1000 * 5).toISOString().slice(0, 10),
+    calories: 90,
+    status: "Planned",
+  },
+]);
 
 const mealForm = reactive({
   time: "",
   name: "",
   calories: "",
+  location: "",
+  date: "",
+  protein: "",
+  carbs: "",
+  fat: "",
 });
 
 const activityForm = reactive({
-  name: "",
+  type: "",
   duration: "",
+  date: "",
   calories: "",
+  status: "Completed" as ActivityStatus,
 });
 
 const aiStatus = ref("Idle");
@@ -44,6 +143,11 @@ const firstName = computed(() => {
     u?.name?.split?.(" ")?.[0] ||
     "Friend"
   );
+});
+
+const userId = computed(() => {
+  const u = user.value as any;
+  return u?.id || u?.userId || null;
 });
 
 const greeting = ref("Welcome back");
@@ -127,41 +231,115 @@ const waterPercent = computed(() => {
   return Math.min(100, Math.round((water.consumed / water.goal) * 100));
 });
 
-const waterRemaining = computed(() => {
-  if (!water.goal) return 0;
-  return Math.max(water.goal - water.consumed, 0);
-});
-
 const aiButtonLabel = computed(() =>
   aiStatus.value === "Idle" ? "Let AI suggest a meal" : aiStatus.value
 );
 
-const addMeal = () => {
-  if (!mealForm.time || !mealForm.name || !mealForm.calories) {
+const addMeal = async () => {
+  if (
+    !mealForm.time ||
+    !mealForm.name ||
+    !mealForm.calories ||
+    !mealForm.location ||
+    !mealForm.date
+  ) {
     return;
   }
-  meals.value.push({
+
+  const macros: MacroBreakdown = {
+    protein: Number(mealForm.protein) || 0,
+    carbs: Number(mealForm.carbs) || 0,
+    fat: Number(mealForm.fat) || 0,
+  };
+
+  const entry: MealEntry = {
     time: mealForm.time,
     name: mealForm.name,
     calories: Number(mealForm.calories),
-  });
+    location: mealForm.location,
+    date: mealForm.date,
+    macros,
+  };
+
+  meals.value.push(entry);
+
+  if (userId.value) {
+    try {
+      await $fetch("/api/foods", {
+        method: "POST",
+        body: {
+          userId: userId.value,
+          itemName: entry.name,
+          calories: entry.calories,
+          diningEstablishment: entry.location,
+          macros: entry.macros,
+          dateConsumed: entry.date,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to persist food entry", error);
+    }
+  }
+
   mealForm.time = "";
   mealForm.name = "";
   mealForm.calories = "";
+  mealForm.location = "";
+  mealForm.date = "";
+  mealForm.protein = "";
+  mealForm.carbs = "";
+  mealForm.fat = "";
 };
 
-const addActivity = () => {
-  if (!activityForm.name || !activityForm.duration || !activityForm.calories) {
+const addActivity = async () => {
+  if (
+    !activityForm.type ||
+    !activityForm.duration ||
+    !activityForm.calories ||
+    !activityForm.date
+  ) {
     return;
   }
   activities.value.push({
-    name: activityForm.name,
+    type: activityForm.type,
     duration: activityForm.duration,
+    date: activityForm.date,
     calories: Number(activityForm.calories),
+    status: activityForm.status,
   });
-  activityForm.name = "";
+
+  if (userId.value) {
+    try {
+      await $fetch("/api/activities", {
+        method: "POST",
+        body: {
+          userId: userId.value,
+          type: activityForm.type,
+          duration: activityForm.duration,
+          date: activityForm.date,
+          calories: Number(activityForm.calories),
+          status: activityForm.status,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to persist activity", error);
+    }
+  }
+  activityForm.type = "";
   activityForm.duration = "";
+  activityForm.date = "";
   activityForm.calories = "";
+  activityForm.status = "Completed";
+};
+
+const macroPercent = (macro: MacroEntry) =>
+  Math.min(100, Math.round((macro.consumed / macro.goal) * 100));
+
+const macroDialStyle = (macro: MacroEntry) => {
+  const percent = macroPercent(macro);
+  return {
+    background: `conic-gradient(#ff8367 0% ${percent}%, rgba(255, 255, 255, 0.12) ${percent}% 100%)`,
+  };
 };
 
 const handleAISuggestions = () => {
@@ -192,12 +370,30 @@ useSeoMeta({
           <p class="card__eyebrow">Daily dial</p>
           <h2>Today’s score</h2>
         </header>
-        <ClientOnly>
-          <VChart class="dial-chart" :option="gaugeOption" autoresize />
-        </ClientOnly>
+        <div class="dial-card__body">
+          <ClientOnly>
+            <VChart class="dial-chart" :option="gaugeOption" autoresize />
+          </ClientOnly>
+          <div class="dial-metrics">
+            <div class="mini-stat">
+              <p class="mini-stat__label">Sleep</p>
+              <p class="mini-stat__value">{{ sleep.hours }} hrs</p>
+              <p class="mini-stat__sub">{{ sleep.quality }}</p>
+            </div>
+            <div class="mini-stat">
+              <p class="mini-stat__label">Hydration</p>
+              <p class="mini-stat__value">{{ waterPercent }}%</p>
+              <p class="mini-stat__sub">
+                {{ water.consumed }} / {{ water.goal }} oz
+              </p>
+            </div>
+          </div>
+        </div>
         <p class="dial-card__note">
           Score blends activity, hydration, and sleep data. Keep trending above
           85% for steady recovery.
+          <br />
+          <span class="dial-card__note--muted">{{ sleep.note }}</span>
         </p>
       </article>
 
@@ -212,25 +408,26 @@ useSeoMeta({
               <div>
                 <p class="macro-row__label">{{ macro.label }}</p>
                 <p class="macro-row__value">
-                  {{ macro.consumed }} / {{ macro.goal }}{{ macro.unit }}
+                  {{ macro.consumed }} / {{ macro.goal }} {{ macro.unit }}
                 </p>
               </div>
-              <span
-                class="macro-pill"
-                :class="{ 'macro-pill--hit': macro.consumed >= macro.goal }"
-              >
-                {{ macro.consumed >= macro.goal ? "Hit" : "Tracking" }}
-              </span>
+              <div class="macro-status">
+                <span class="macro-status__percent"
+                  >{{ macroPercent(macro) }}%</span
+                >
+                <span
+                  class="macro-pill"
+                  :class="{ 'macro-pill--hit': macro.consumed >= macro.goal }"
+                >
+                  {{ macro.consumed >= macro.goal ? "Hit" : "Tracking" }}
+                </span>
+              </div>
             </div>
-            <div class="progress">
-              <span
-                :style="{
-                  width: `${Math.min(
-                    (macro.consumed / macro.goal) * 100,
-                    100
-                  )}%`,
-                }"
-              ></span>
+            <div class="progress macro-progress">
+              <span :style="{ width: `${macroPercent(macro)}%` }"></span>
+            </div>
+            <div class="macro-dial" :style="macroDialStyle(macro)">
+              <span>{{ macroPercent(macro) }}%</span>
             </div>
           </li>
         </ul>
@@ -238,26 +435,6 @@ useSeoMeta({
     </section>
 
     <section class="stats-grid">
-      <article class="card sleep-card">
-        <header>
-          <p class="card__eyebrow">Sleep</p>
-          <h3>{{ sleep.hours }} hrs</h3>
-        </header>
-        <p class="card__sub">{{ sleep.quality }}</p>
-        <p>{{ sleep.note }}</p>
-      </article>
-
-      <article class="card water-card">
-        <header>
-          <p class="card__eyebrow">Hydration</p>
-          <h3>{{ water.consumed }} / {{ water.goal }} oz</h3>
-        </header>
-        <div class="progress progress--thick">
-          <span :style="{ width: `${waterPercent}%` }"></span>
-        </div>
-        <p class="card__sub">{{ waterRemaining }} oz remaining today</p>
-      </article>
-
       <article class="card ai-card">
         <header>
           <p class="card__eyebrow">AI copilot</p>
@@ -291,9 +468,18 @@ useSeoMeta({
         </header>
         <ul class="meals-list">
           <li v-for="meal in meals" :key="`${meal.time}-${meal.name}`">
-            <p class="meals-list__time">{{ meal.time }}</p>
-            <div>
+            <div class="meals-list__info">
+              <p class="meals-list__time">{{ meal.time }}</p>
               <p class="meals-list__name">{{ meal.name }}</p>
+              <p class="meals-list__meta">
+                {{ meal.date }} · {{ meal.location }}
+              </p>
+              <p class="meals-list__macros">
+                {{ meal.macros.protein }}P / {{ meal.macros.carbs }}C /
+                {{ meal.macros.fat }}F
+              </p>
+            </div>
+            <div class="meals-list__stats">
               <p class="meals-list__calories">{{ meal.calories }} cal</p>
             </div>
           </li>
@@ -307,10 +493,24 @@ useSeoMeta({
               required
             />
             <input
+              v-model="mealForm.date"
+              type="date"
+              aria-label="Date consumed"
+              required
+            />
+          </div>
+          <div class="form__row">
+            <input
               v-model="mealForm.calories"
               type="number"
               min="0"
               placeholder="Calories"
+              required
+            />
+            <input
+              v-model="mealForm.location"
+              type="text"
+              placeholder="Dining establishment"
               required
             />
           </div>
@@ -320,6 +520,26 @@ useSeoMeta({
               type="text"
               placeholder="Meal description"
               required
+            />
+          </div>
+          <div class="form__row">
+            <input
+              v-model="mealForm.protein"
+              type="number"
+              min="0"
+              placeholder="Protein (g)"
+            />
+            <input
+              v-model="mealForm.carbs"
+              type="number"
+              min="0"
+              placeholder="Carbs (g)"
+            />
+            <input
+              v-model="mealForm.fat"
+              type="number"
+              min="0"
+              placeholder="Fat (g)"
             />
           </div>
           <button class="btn btn--primary" type="submit">Add meal</button>
@@ -334,29 +554,47 @@ useSeoMeta({
         <ul class="activity-list">
           <li
             v-for="activity in activities"
-            :key="`${activity.name}-${activity.duration}`"
+            :key="`${activity.type}-${activity.date}-${activity.duration}`"
           >
             <div>
-              <p class="activity-list__name">{{ activity.name }}</p>
-              <p class="activity-list__meta">{{ activity.duration }}</p>
+              <p class="activity-list__name">{{ activity.type }}</p>
+              <p class="activity-list__meta">
+                {{ activity.date }} · {{ activity.duration }}
+              </p>
             </div>
-            <p class="activity-list__calories">{{ activity.calories }} cal</p>
+            <div class="activity-list__details">
+              <span
+                class="activity-pill"
+                :class="{
+                  'activity-pill--planned': activity.status === 'Planned',
+                }"
+              >
+                {{ activity.status }}
+              </span>
+              <p class="activity-list__calories">{{ activity.calories }} cal</p>
+            </div>
           </li>
         </ul>
         <form class="form" @submit.prevent="addActivity">
           <div class="form__row">
             <input
-              v-model="activityForm.name"
+              v-model="activityForm.type"
               type="text"
-              placeholder="Activity name"
+              placeholder="Activity type"
+              required
+            />
+            <input
+              v-model="activityForm.duration"
+              type="text"
+              placeholder="Duration e.g. 25 min"
               required
             />
           </div>
           <div class="form__row">
             <input
-              v-model="activityForm.duration"
-              type="text"
-              placeholder="Duration e.g. 25 min"
+              v-model="activityForm.date"
+              type="date"
+              aria-label="Activity date"
               required
             />
             <input
@@ -366,6 +604,12 @@ useSeoMeta({
               placeholder="Calories"
               required
             />
+          </div>
+          <div class="form__row form__row--compact">
+            <select v-model="activityForm.status" aria-label="Completion state">
+              <option value="Completed">Completed</option>
+              <option value="Planned">Planned</option>
+            </select>
           </div>
           <button class="btn btn--primary" type="submit">Log activity</button>
         </form>
@@ -470,6 +714,17 @@ useSeoMeta({
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (min-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .dial-card {
+    max-width: 440px;
+  }
 }
 
 .card {
@@ -483,7 +738,7 @@ useSeoMeta({
 }
 
 .dial-card {
-  min-height: 420px;
+  min-height: 360px;
 }
 
 .dial-chart {
@@ -491,10 +746,53 @@ useSeoMeta({
   height: 280px;
 }
 
+.dial-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dial-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.mini-stat {
+  padding: 0.9rem 1.1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mini-stat__label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ffb08f;
+}
+
+.mini-stat__value {
+  margin: 0.35rem 0 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.mini-stat__sub {
+  margin: 0.2rem 0 0;
+  color: #b8b4ad;
+}
+
 .dial-card__note {
   margin: 0;
   color: #c5c2bc;
   font-size: 0.95rem;
+}
+
+.dial-card__note--muted {
+  color: #a7a39b;
+  font-size: 0.9rem;
 }
 
 .macros-card ul,
@@ -528,6 +826,17 @@ useSeoMeta({
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+}
+
+.macro-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.macro-status__percent {
+  font-weight: 600;
+  color: #ffc083;
 }
 
 .macro-row__label {
@@ -567,6 +876,24 @@ useSeoMeta({
   background: linear-gradient(90deg, #ff8367, #ffc083);
 }
 
+.macro-progress {
+  margin-top: 0.4rem;
+}
+
+.macro-dial {
+  display: none;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: #f8f7f4;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 0.75rem;
+}
+
 .progress--thick {
   height: 12px;
 }
@@ -577,8 +904,6 @@ useSeoMeta({
   gap: 1.25rem;
 }
 
-.sleep-card,
-.water-card,
 .ai-card {
   gap: 0.5rem;
 }
@@ -603,7 +928,14 @@ useSeoMeta({
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.activity-list__details {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
 .meals-list__time,
+.meals-list__meta,
 .activity-list__meta {
   margin: 0;
   font-size: 0.85rem;
@@ -621,6 +953,36 @@ useSeoMeta({
   margin: 0;
   color: #ffc083;
   font-weight: 600;
+}
+
+.meals-list__macros {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: #c5c2bc;
+}
+
+.meals-list__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meals-list__stats {
+  text-align: right;
+}
+
+.activity-pill {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.activity-pill--planned {
+  border-color: rgba(79, 172, 254, 0.8);
+  color: #4facfe;
 }
 
 .form {
@@ -646,7 +1008,12 @@ useSeoMeta({
   gap: 0.75rem;
 }
 
-input {
+.form__row--compact {
+  align-items: stretch;
+}
+
+input,
+select {
   width: 100%;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -660,9 +1027,21 @@ input::placeholder {
   color: rgba(248, 247, 244, 0.6);
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid #ff8367;
   outline-offset: 1px;
+}
+
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #f8f7f4 50%),
+    linear-gradient(135deg, #f8f7f4 50%, transparent 50%);
+  background-position: calc(100% - 20px) calc(50% - 3px),
+    calc(100% - 15px) calc(50% - 3px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.5rem;
 }
 
 @media (max-width: 640px) {
@@ -678,6 +1057,15 @@ input:focus {
   .btn {
     width: 100%;
     text-align: center;
+  }
+
+  .macro-progress {
+    display: none;
+  }
+
+  .macro-dial {
+    display: flex;
+    margin-left: auto;
   }
 }
 </style>

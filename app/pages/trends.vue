@@ -2,6 +2,13 @@
 import { ref, computed } from "vue";
 import { useHead } from "#imports";
 
+definePageMeta({
+  middleware: [
+    // cast the named middleware to the NavigationGuard type so TS accepts the string name
+    "require-onboarding" as unknown as import("vue-router").NavigationGuard,
+  ],
+});
+
 // Range control + synthetic demo data generator so charts feel alive in preview
 const range = ref<"week" | "month">("week");
 
