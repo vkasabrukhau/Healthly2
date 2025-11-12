@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch } from "vue";
-import { useUser } from "#imports";
+import { useUser, useClerk, useCookie } from "#imports";
 
 definePageMeta({
   middleware: [
@@ -151,6 +151,32 @@ const userId = computed(() => {
 });
 
 const greeting = ref("Welcome back");
+
+// Sign-out helper: uses Clerk's composable when available, falls back to direct Clerk global.
+const clerk = (
+  typeof useClerk === "function" ? (useClerk() as any) : null
+) as any;
+const onboardingCookie = useCookie("healthly-onboarded");
+
+const handleSignOut = async () => {
+  try {
+    if (clerk && typeof clerk.signOut === "function") {
+      await clerk.signOut();
+    } else if (process.client && (window as any).Clerk?.signOut) {
+      await (window as any).Clerk.signOut();
+    }
+  } catch (e) {
+    // swallow sign-out errors but log in dev
+    if (process.dev) console.warn("Sign out failed:", e);
+  } finally {
+    // clear onboarding cookie so a future sign-in on this device will re-check server
+    try {
+      onboardingCookie.value = "false";
+    } catch (e) {}
+    // navigate to landing
+    return navigateTo("/");
+  }
+};
 
 function computeGreetingForHour(hour: number) {
   if (hour >= 5 && hour < 12) return "Good morning";
@@ -361,6 +387,11 @@ useSeoMeta({
     <header class="intro">
       <div>
         <h1>{{ greeting }}</h1>
+      </div>
+      <div class="intro-actions">
+        <button class="btn btn--secondary" type="button" @click="handleSignOut">
+          Sign out
+        </button>
       </div>
     </header>
 

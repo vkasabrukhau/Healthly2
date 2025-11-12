@@ -50,8 +50,9 @@ const form = reactive({
   firstName: "",
   lastName: "",
   dob: "",
-  exerciseLevel: exerciseLevels[1].value,
-  exerciseFrequency: frequencyOptions[1].value,
+  exerciseLevel: exerciseLevels?.[1]?.value ?? exerciseLevels?.[0]?.value ?? "",
+  exerciseFrequency:
+    frequencyOptions?.[1]?.value ?? frequencyOptions?.[0]?.value ?? "",
   photoDataUrl: "",
 });
 
@@ -81,29 +82,33 @@ const age = computed(() => {
 });
 
 const levelLabel = computed(
-  () => exerciseLevels.find((option) => option.value === form.exerciseLevel)?.label
+  () =>
+    exerciseLevels.find((option) => option.value === form.exerciseLevel)?.label
 );
 
 const frequencyLabel = computed(
-  () => frequencyOptions.find((option) => option.value === form.exerciseFrequency)?.label
+  () =>
+    frequencyOptions.find((option) => option.value === form.exerciseFrequency)
+      ?.label
 );
 
-const isFormComplete = computed(
-  () =>
-    Boolean(
-      form.firstName &&
-        form.lastName &&
-        form.dob &&
-        age.value !== "--" &&
-        form.exerciseLevel &&
-        form.exerciseFrequency &&
-        form.photoDataUrl &&
-        !photoError.value
-    )
+const isFormComplete = computed(() =>
+  Boolean(
+    form.firstName &&
+      form.lastName &&
+      form.dob &&
+      age.value !== "--" &&
+      form.exerciseLevel &&
+      form.exerciseFrequency &&
+      form.photoDataUrl &&
+      !photoError.value
+  )
 );
 
 const isUserReady = computed(() => Boolean(clerkUserId.value));
-const canSubmit = computed(() => isFormComplete.value && isUserReady.value && !isSubmitting.value);
+const canSubmit = computed(
+  () => isFormComplete.value && isUserReady.value && !isSubmitting.value
+);
 
 onMounted(() => {
   if (onboardingCookie.value === "true") {
@@ -154,9 +159,13 @@ const handleSubmit = async () => {
       levelLabel: levelLabel.value,
       frequencyLabel: frequencyLabel.value,
     };
-    localStorage.setItem("healthly-onboarding-profile", JSON.stringify(payload));
+    localStorage.setItem(
+      "healthly-onboarding-profile",
+      JSON.stringify(payload)
+    );
   }
 
+  let persisted = false;
   try {
     await $fetch("/api/users", {
       method: "POST",
@@ -171,14 +180,19 @@ const handleSubmit = async () => {
         photoDataUrl: form.photoDataUrl,
       },
     });
+    persisted = true;
   } catch (error) {
     console.error("Failed to persist onboarding profile", error);
+    // Optionally, show a UI error message instead of proceeding.
   } finally {
     isSubmitting.value = false;
   }
 
-  onboardingCookie.value = "true";
-  router.push(redirectTarget.value);
+  // Only mark onboarding complete (cookie) after we successfully persisted user profile.
+  if (persisted) {
+    onboardingCookie.value = "true";
+    router.push(redirectTarget.value);
+  }
 };
 </script>
 
@@ -246,8 +260,15 @@ const handleSubmit = async () => {
               >
               <small v-if="photoError" class="error">{{ photoError }}</small>
             </label>
-            <div class="photo-preview" :class="{ 'photo-preview--empty': !form.photoDataUrl }">
-              <img v-if="form.photoDataUrl" :src="form.photoDataUrl" alt="Profile preview" />
+            <div
+              class="photo-preview"
+              :class="{ 'photo-preview--empty': !form.photoDataUrl }"
+            >
+              <img
+                v-if="form.photoDataUrl"
+                :src="form.photoDataUrl"
+                alt="Profile preview"
+              />
               <p v-else>Preview will appear here.</p>
             </div>
           </div>
@@ -256,7 +277,11 @@ const handleSubmit = async () => {
             <label>
               <span>Average exercise level</span>
               <select v-model="form.exerciseLevel">
-                <option v-for="option in exerciseLevels" :key="option.value" :value="option.value">
+                <option
+                  v-for="option in exerciseLevels"
+                  :key="option.value"
+                  :value="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
@@ -275,11 +300,7 @@ const handleSubmit = async () => {
             </label>
           </div>
 
-          <button
-            class="btn btn--primary"
-            type="submit"
-            :disabled="!canSubmit"
-          >
+          <button class="btn btn--primary" type="submit" :disabled="!canSubmit">
             {{ isSubmitting ? "Saving…" : "Finish onboarding" }}
           </button>
         </form>
@@ -313,8 +334,8 @@ const handleSubmit = async () => {
           </li>
         </ul>
         <p class="card__sub">
-          You can update these details later inside account settings. We only use
-          them to tailor suggestions.
+          You can update these details later inside account settings. We only
+          use them to tailor suggestions.
         </p>
       </section>
     </div>

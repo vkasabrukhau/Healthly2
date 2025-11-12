@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection } from "mongodb";
+import { MongoClient, Db, Collection, Document } from "mongodb";
 import { useRuntimeConfig } from "#imports";
 
 type GlobalWithMongo = typeof globalThis & {
@@ -33,7 +33,7 @@ export async function getDb(): Promise<Db> {
   return client.db(dbName);
 }
 
-export async function getCollection<TSchema = any>(
+export async function getCollection<TSchema extends Document = Document>(
   name: string
 ): Promise<Collection<TSchema>> {
   const db = await getDb();
