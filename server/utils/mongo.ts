@@ -12,7 +12,9 @@ async function getMongoClient(): Promise<MongoClient> {
   const uri = config.mongoUri as string | undefined;
 
   if (!uri) {
-    throw new Error("Missing MONGODB_URI env var");
+    throw new Error(
+      "Mongo connection string missing. Set MONGODB_URI or MONGO_URI in your environment."
+    );
   }
 
   if (!globalWithMongo._mongoClientPromise) {

@@ -1,4 +1,4 @@
-import { getCollection } from "~/server/utils/mongo";
+import { getCollection } from "../utils/mongo";
 
 type UserProfileDoc = {
   userId: string;
@@ -15,22 +15,40 @@ type UserProfileDoc = {
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<Partial<UserProfileDoc>>(event);
-  const { userId, firstName, lastName, dob, age, exerciseLevel, exerciseFrequency, photoDataUrl } = body;
+  const {
+    userId,
+    firstName,
+    lastName,
+    dob,
+    age,
+    exerciseLevel,
+    exerciseFrequency,
+    photoDataUrl,
+  } = body;
 
   if (!userId || !firstName || !lastName || !dob || typeof age !== "number") {
-    throw createError({ statusCode: 400, statusMessage: "Missing required onboarding data" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing required onboarding data",
+    });
   }
 
   if (!exerciseLevel || !exerciseFrequency) {
-    throw createError({ statusCode: 400, statusMessage: "Exercise info required" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Exercise info required",
+    });
   }
 
   const parsedDob = new Date(dob);
   if (Number.isNaN(parsedDob.getTime())) {
-    throw createError({ statusCode: 400, statusMessage: "Invalid date of birth" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid date of birth",
+    });
   }
 
-  const collection = await getCollection<UserProfileDoc>("users");
+  const collection = await getCollection<UserProfileDoc>("user");
   const now = new Date();
 
   await collection.updateOne(

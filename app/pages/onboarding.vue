@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watchEffect } from "vue";
+import { computed, reactive, ref, onMounted } from "vue";
 import { useCookie, useRoute, useRouter, useSeoMeta, useUser } from "#imports";
 
 useSeoMeta({
@@ -58,6 +58,7 @@ const form = reactive({
 const attemptedSubmit = ref(false);
 const photoName = ref<string>("");
 const photoError = ref("");
+const isSubmitting = ref(false);
 
 const redirectTarget = computed(() => {
   const raw = Array.isArray(route.query.redirect)
@@ -101,8 +102,11 @@ const isFormComplete = computed(
     )
 );
 
-watchEffect(() => {
-  if (process.client && onboardingCookie.value === "true") {
+const isUserReady = computed(() => Boolean(clerkUserId.value));
+const canSubmit = computed(() => isFormComplete.value && isUserReady.value && !isSubmitting.value);
+
+onMounted(() => {
+  if (onboardingCookie.value === "true") {
     router.replace(redirectTarget.value);
   }
 });
@@ -131,7 +135,7 @@ const handlePhotoChange = (event: Event) => {
 
 const handleSubmit = async () => {
   attemptedSubmit.value = true;
-  if (!isFormComplete.value) {
+  if (!canSubmit.value) {
     return;
   }
 
@@ -141,7 +145,7 @@ const handleSubmit = async () => {
     return;
   }
 
-  onboardingCookie.value = "true";
+  isSubmitting.value = true;
 
   if (process.client) {
     const payload = {
@@ -169,8 +173,11 @@ const handleSubmit = async () => {
     });
   } catch (error) {
     console.error("Failed to persist onboarding profile", error);
+  } finally {
+    isSubmitting.value = false;
   }
 
+  onboardingCookie.value = "true";
   router.push(redirectTarget.value);
 };
 </script>
@@ -268,8 +275,12 @@ const handleSubmit = async () => {
             </label>
           </div>
 
-          <button class="btn btn--primary" type="submit" :disabled="!isFormComplete">
-            Finish onboarding
+          <button
+            class="btn btn--primary"
+            type="submit"
+            :disabled="!canSubmit"
+          >
+            {{ isSubmitting ? "Saving…" : "Finish onboarding" }}
           </button>
         </form>
       </section>
@@ -318,12 +329,20 @@ const handleSubmit = async () => {
   color: #f8f7f4;
 }
 
+:global(*),
+:global(*::before),
+:global(*::after) {
+  box-sizing: border-box;
+}
+
 .onboarding-page {
   min-height: 100vh;
   padding: 64px clamp(1.25rem, 5vw, 5rem);
   display: flex;
   flex-direction: column;
   gap: 2.5rem;
+  width: min(1200px, 100%);
+  margin: 0 auto;
 }
 
 .intro {
@@ -363,6 +382,8 @@ const handleSubmit = async () => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .form-card form {
@@ -375,6 +396,14 @@ const handleSubmit = async () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+.form-grid label,
+.selectors label,
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 label span {
@@ -432,16 +461,17 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
-  align-items: center;
+  align-items: stretch;
 }
 
 .upload-label input[type="file"] {
   border: 1px dashed rgba(255, 255, 255, 0.3);
   padding: 0.75rem;
+  width: 100%;
 }
 
 .photo-preview {
-  height: 200px;
+  min-height: 220px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -449,6 +479,7 @@ select:focus {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  width: 100%;
 }
 
 .photo-preview img {
@@ -473,6 +504,7 @@ select:focus {
   font-weight: 600;
   border: none;
   cursor: pointer;
+  width: fit-content;
 }
 
 .btn--primary {
@@ -518,6 +550,7 @@ small {
   display: block;
   margin-top: 0.35rem;
   color: rgba(255, 255, 255, 0.7);
+  min-height: 1rem;
 }
 
 .error {
@@ -539,6 +572,11 @@ small {
 
   .onboarding-page {
     padding: 48px 1.25rem;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
   }
 }
 </style>

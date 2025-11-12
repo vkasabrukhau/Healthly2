@@ -1,4 +1,4 @@
-import { getCollection } from "~/server/utils/mongo";
+import { getCollection } from "../utils/mongo";
 
 type ActivityDoc = {
   userId: string;
