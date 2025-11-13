@@ -6,6 +6,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // If cookie says onboarding already completed, skip.
   if (onboardingCookie.value === "true") return;
 
+  // If we're already heading to the onboarding page, allow it (avoid redirect loop).
+  if (to.path && to.path.startsWith("/onboarding")) return;
+
   // If user not signed in yet, don't force onboarding here — let auth flow handle sign-in.
   const { user } = useUser ? useUser() : { user: null };
   const _u = user as any;

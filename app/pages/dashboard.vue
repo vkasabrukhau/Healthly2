@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch } from "vue";
-import { useUser, useClerk, useCookie } from "#imports";
+import { useUser } from "#imports";
 
 definePageMeta({
   middleware: [
@@ -42,81 +42,26 @@ type ActivityEntry = {
   status: ActivityStatus;
 };
 
-const dailyScore = ref(84);
-
-const macros = ref<MacroEntry[]>([
-  { label: "Saturated Fat", consumed: 12, goal: 20, unit: "g" },
-  { label: "Trans Fat", consumed: 1, goal: 2, unit: "g" },
-  { label: "Total Fat", consumed: 48, goal: 70, unit: "g" },
-  { label: "Cholesterol", consumed: 180, goal: 300, unit: "mg" },
-  { label: "Sodium", consumed: 2100, goal: 2300, unit: "mg" },
-  { label: "Carbs", consumed: 180, goal: 260, unit: "g" },
-  { label: "Protein", consumed: 92, goal: 120, unit: "g" },
-  { label: "Calcium", consumed: 850, goal: 1000, unit: "mg" },
-  { label: "Iron", consumed: 14, goal: 18, unit: "mg" },
-  { label: "Potassium", consumed: 3400, goal: 4700, unit: "mg" },
-  { label: "Calories", consumed: 1780, goal: 2200, unit: "kcal" },
-]);
+const macros = ref<MacroEntry[]>([]);
 
 const sleep = reactive({
-  hours: 7.4,
-  quality: "Restorative",
-  note: "Fell asleep quickly after evening stretch routine.",
+  hours: 0,
+  quality: "",
+  note: "",
 });
 
-const water = reactive({ consumed: 72, goal: 90 });
+const water = reactive({ consumed: 0, goal: 0 });
 
 const today = new Date().toISOString().slice(0, 10);
-const meals = ref<MealEntry[]>([
-  {
-    time: "08:10",
-    date: today,
-    name: "Greek yogurt parfait",
-    calories: 320,
-    location: "Campus dining",
-    macros: { protein: 24, carbs: 38, fat: 9 },
-  },
-  {
-    time: "12:35",
-    date: today,
-    name: "Roasted salmon bowl",
-    calories: 610,
-    location: "Fresh Kitchen",
-    macros: { protein: 42, carbs: 48, fat: 22 },
-  },
-  {
-    time: "15:10",
-    date: today,
-    name: "Protein shake",
-    calories: 240,
-    location: "Rec center bar",
-    macros: { protein: 30, carbs: 22, fat: 6 },
-  },
-]);
-
-const activities = ref<ActivityEntry[]>([
-  {
-    type: "Tempo run",
-    duration: "32 min",
-    date: new Date().toISOString().slice(0, 10),
-    calories: 310,
-    status: "Completed",
-  },
-  {
-    type: "Mobility flow",
-    duration: "18 min",
-    date: new Date(Date.now() + 3600 * 1000 * 5).toISOString().slice(0, 10),
-    calories: 90,
-    status: "Planned",
-  },
-]);
+const selectedDate = ref(today);
+const meals = ref<MealEntry[]>([]);
+const activities = ref<ActivityEntry[]>([]);
 
 const mealForm = reactive({
   time: "",
   name: "",
   calories: "",
   location: "",
-  date: "",
   protein: "",
   carbs: "",
   fat: "",
@@ -125,12 +70,61 @@ const mealForm = reactive({
 const activityForm = reactive({
   type: "",
   duration: "",
-  date: "",
   calories: "",
   status: "Completed" as ActivityStatus,
 });
 
 const aiStatus = ref("Idle");
+
+const macroPercent = (macro: MacroEntry) =>
+  Math.min(100, Math.round((macro.consumed / macro.goal) * 100));
+
+const macroDialStyle = (macro: MacroEntry) => {
+  const percent = macroPercent(macro);
+  return {
+    background: `conic-gradient(#4f9cff 0% ${percent}%, rgba(255, 255, 255, 0.12) ${percent}% 100%)`,
+  };
+};
+
+const macroCompletion = computed(() => {
+  if (!macros.value.length) return 0;
+  const avg =
+    macros.value.reduce((sum, macro) => sum + macroPercent(macro), 0) /
+    macros.value.length;
+  return avg / 100;
+});
+
+const sleepQualityMultiplier = computed(() => {
+  const label = (sleep.quality || "").toLowerCase();
+  if (label.includes("restor")) return 1;
+  if (label.includes("good")) return 0.95;
+  if (label.includes("fair")) return 0.8;
+  if (label.includes("poor")) return 0.6;
+  return 0.85;
+});
+
+const sleepContribution = computed(() =>
+  Math.min((sleep.hours / 8) * sleepQualityMultiplier.value, 1)
+);
+
+const exerciseCompletion = computed(() => {
+  const completed = activities.value.filter(
+    (a) => a.status === "Completed"
+  ).length;
+  return Math.min(completed / 2, 1);
+});
+
+const eatingCompletion = computed(() => Math.min(meals.value.length / 4, 1));
+
+const dailyScore = computed(() => {
+  const weighted =
+    sleepContribution.value * 0.25 +
+    macroCompletion.value * 0.35 +
+    exerciseCompletion.value * 0.2 +
+    eatingCompletion.value * 0.2;
+
+  return Math.round(weighted * 100);
+});
 
 // Clerk user info and a time-of-day greeting based on the client's local time
 const { user, isLoaded: userLoaded } = useUser();
@@ -151,32 +145,6 @@ const userId = computed(() => {
 });
 
 const greeting = ref("Welcome back");
-
-// Sign-out helper: uses Clerk's composable when available, falls back to direct Clerk global.
-const clerk = (
-  typeof useClerk === "function" ? (useClerk() as any) : null
-) as any;
-const onboardingCookie = useCookie("healthly-onboarded");
-
-const handleSignOut = async () => {
-  try {
-    if (clerk && typeof clerk.signOut === "function") {
-      await clerk.signOut();
-    } else if (process.client && (window as any).Clerk?.signOut) {
-      await (window as any).Clerk.signOut();
-    }
-  } catch (e) {
-    // swallow sign-out errors but log in dev
-    if (process.dev) console.warn("Sign out failed:", e);
-  } finally {
-    // clear onboarding cookie so a future sign-in on this device will re-check server
-    try {
-      onboardingCookie.value = "false";
-    } catch (e) {}
-    // navigate to landing
-    return navigateTo("/");
-  }
-};
 
 function computeGreetingForHour(hour: number) {
   if (hour >= 5 && hour < 12) return "Good morning";
@@ -207,47 +175,43 @@ watch(
 );
 
 const gaugeOption = computed(() => ({
-  tooltip: {
-    formatter: "{b}: {c}%",
-  },
+  tooltip: { formatter: "{b}: {c}" },
   series: [
     {
       type: "gauge",
-      startAngle: 220,
-      endAngle: -40,
+      startAngle: 90,
+      endAngle: -270,
       min: 0,
       max: 100,
       radius: "90%",
+      pointer: { show: false },
       progress: {
         show: true,
-        width: 12,
+        overlap: false,
         roundCap: true,
+        clip: false,
+        width: 14,
         itemStyle: {
-          color: "#ff8367",
+          color: "#4f9cff",
         },
       },
       axisLine: {
         lineStyle: {
-          width: 12,
-          color: [[1, "rgba(255, 255, 255, 0.12)"]],
+          width: 14,
+          color: [[1, "rgba(255, 255, 255, 0.08)"]],
         },
       },
       axisTick: { show: false },
       splitLine: { show: false },
       axisLabel: { show: false },
-      pointer: {
-        show: true,
-        length: "70%",
-        width: 5,
-      },
       detail: {
         valueAnimation: true,
-        fontSize: 36,
-        offsetCenter: [0, "60%"],
+        offsetCenter: [0, 0],
+        fontSize: 42,
         color: "#f8f7f4",
-        formatter: "{value}%",
+        formatter: (val: number) => `${val}%`,
       },
-      data: [{ value: dailyScore.value, name: "Today’s score" }],
+      data: [{ value: dailyScore.value, name: "Today’s Index" }],
     },
   ],
 }));
@@ -257,8 +221,98 @@ const waterPercent = computed(() => {
   return Math.min(100, Math.round((water.consumed / water.goal) * 100));
 });
 
-const aiButtonLabel = computed(() =>
-  aiStatus.value === "Idle" ? "Let AI suggest a meal" : aiStatus.value
+const normalizeDayString = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return today;
+  }
+  return parsed.toISOString().slice(0, 10);
+};
+
+const isMealsLoading = ref(false);
+const isActivitiesLoading = ref(false);
+
+const fetchMealsForDay = async () => {
+  if (!userId.value || !selectedDate.value) return;
+  isMealsLoading.value = true;
+  try {
+    const response = await $fetch(`/api/foods/${userId.value}`, {
+      params: { date: selectedDate.value },
+    });
+    const items = Array.isArray((response as any)?.items)
+      ? (response as any).items
+      : [];
+    meals.value = items.map((item: any) => ({
+      time: item.time || "--:--",
+      name: item.itemName || item.name || "Meal",
+      calories: Number(item.calories) || 0,
+      location: item.diningEstablishment || "Unknown",
+      date: item.dayKey || normalizeDayString(item.dateConsumed || selectedDate.value),
+      macros: {
+        protein: Number(item.macros?.protein ?? 0),
+        carbs: Number(item.macros?.carbs ?? 0),
+        fat: Number(item.macros?.fat ?? 0),
+      },
+    }));
+  } catch (error) {
+    if (process.dev) console.error("Failed to load meals", error);
+    meals.value = [];
+  } finally {
+    isMealsLoading.value = false;
+  }
+};
+
+const fetchActivitiesForDay = async () => {
+  if (!userId.value || !selectedDate.value) return;
+  isActivitiesLoading.value = true;
+  try {
+    const response = await $fetch(`/api/activities/${userId.value}`, {
+      params: { date: selectedDate.value },
+    });
+    const items = Array.isArray((response as any)?.items)
+      ? (response as any).items
+      : [];
+    activities.value = items.map((item: any) => ({
+      type: item.type || "Activity",
+      duration: item.duration || "",
+      date: item.dayKey || normalizeDayString(item.date || selectedDate.value),
+      calories: Number(item.calories) || 0,
+      status: item.status === "Planned" ? "Planned" : "Completed",
+    }));
+  } catch (error) {
+    if (process.dev) console.error("Failed to load activities", error);
+    activities.value = [];
+  } finally {
+    isActivitiesLoading.value = false;
+  }
+};
+
+watch(
+  () => selectedDate.value,
+  (val) => {
+    if (!val) {
+      selectedDate.value = today;
+      return;
+    }
+    const normalized = normalizeDayString(val);
+    if (normalized !== val) {
+      selectedDate.value = normalized;
+    }
+  }
+);
+
+watch(
+  () => [userId.value, selectedDate.value],
+  ([uid, day]) => {
+    if (uid && day) {
+      fetchMealsForDay();
+      fetchActivitiesForDay();
+    } else {
+      meals.value = [];
+      activities.value = [];
+    }
+  },
+  { immediate: true }
 );
 
 const addMeal = async () => {
@@ -266,11 +320,12 @@ const addMeal = async () => {
     !mealForm.time ||
     !mealForm.name ||
     !mealForm.calories ||
-    !mealForm.location ||
-    !mealForm.date
+    !mealForm.location
   ) {
     return;
   }
+
+  const activeDate = selectedDate.value || today;
 
   const macros: MacroBreakdown = {
     protein: Number(mealForm.protein) || 0,
@@ -283,89 +338,73 @@ const addMeal = async () => {
     name: mealForm.name,
     calories: Number(mealForm.calories),
     location: mealForm.location,
-    date: mealForm.date,
+    date: activeDate,
     macros,
   };
 
-  meals.value.push(entry);
+  if (!userId.value) {
+    return;
+  }
 
-  if (userId.value) {
-    try {
-      await $fetch("/api/foods", {
-        method: "POST",
-        body: {
-          userId: userId.value,
-          itemName: entry.name,
-          calories: entry.calories,
-          diningEstablishment: entry.location,
-          macros: entry.macros,
-          dateConsumed: entry.date,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to persist food entry", error);
-    }
+  try {
+    await $fetch("/api/foods", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        itemName: entry.name,
+        calories: entry.calories,
+        diningEstablishment: entry.location,
+        macros: entry.macros,
+        dateConsumed: entry.date,
+        time: entry.time,
+      },
+    });
+    await fetchMealsForDay();
+  } catch (error) {
+    console.error("Failed to persist food entry", error);
   }
 
   mealForm.time = "";
   mealForm.name = "";
   mealForm.calories = "";
   mealForm.location = "";
-  mealForm.date = "";
   mealForm.protein = "";
   mealForm.carbs = "";
   mealForm.fat = "";
 };
 
 const addActivity = async () => {
-  if (
-    !activityForm.type ||
-    !activityForm.duration ||
-    !activityForm.calories ||
-    !activityForm.date
-  ) {
+  if (!activityForm.type || !activityForm.duration || !activityForm.calories) {
     return;
   }
-  activities.value.push({
-    type: activityForm.type,
-    duration: activityForm.duration,
-    date: activityForm.date,
-    calories: Number(activityForm.calories),
-    status: activityForm.status,
-  });
 
-  if (userId.value) {
-    try {
-      await $fetch("/api/activities", {
-        method: "POST",
-        body: {
-          userId: userId.value,
-          type: activityForm.type,
-          duration: activityForm.duration,
-          date: activityForm.date,
-          calories: Number(activityForm.calories),
-          status: activityForm.status,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to persist activity", error);
-    }
+  const activeDate = selectedDate.value || today;
+
+  if (!userId.value) {
+    return;
   }
+
+  try {
+    await $fetch("/api/activities", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        type: activityForm.type,
+        duration: activityForm.duration,
+        date: activeDate,
+        calories: Number(activityForm.calories),
+        status: activityForm.status,
+      },
+    });
+    await fetchActivitiesForDay();
+  } catch (error) {
+    console.error("Failed to persist activity", error);
+  }
+
   activityForm.type = "";
   activityForm.duration = "";
-  activityForm.date = "";
   activityForm.calories = "";
   activityForm.status = "Completed";
-};
-
-const macroPercent = (macro: MacroEntry) =>
-  Math.min(100, Math.round((macro.consumed / macro.goal) * 100));
-
-const macroDialStyle = (macro: MacroEntry) => {
-  const percent = macroPercent(macro);
-  return {
-    background: `conic-gradient(#ff8367 0% ${percent}%, rgba(255, 255, 255, 0.12) ${percent}% 100%)`,
-  };
 };
 
 const handleAISuggestions = () => {
@@ -383,270 +422,291 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="page">
-    <header class="intro">
-      <div>
-        <h1>{{ greeting }}</h1>
-      </div>
-      <div class="intro-actions">
-        <button class="btn btn--secondary" type="button" @click="handleSignOut">
-          Sign out
-        </button>
-      </div>
-    </header>
-
-    <section class="dashboard-grid">
-      <article class="card dial-card">
-        <header>
-          <p class="card__eyebrow">Daily dial</p>
-          <h2>Today’s score</h2>
-        </header>
-        <div class="dial-card__body">
-          <ClientOnly>
-            <VChart class="dial-chart" :option="gaugeOption" autoresize />
-          </ClientOnly>
-          <div class="dial-metrics">
-            <div class="mini-stat">
-              <p class="mini-stat__label">Sleep</p>
-              <p class="mini-stat__value">{{ sleep.hours }} hrs</p>
-              <p class="mini-stat__sub">{{ sleep.quality }}</p>
-            </div>
-            <div class="mini-stat">
-              <p class="mini-stat__label">Hydration</p>
-              <p class="mini-stat__value">{{ waterPercent }}%</p>
-              <p class="mini-stat__sub">
-                {{ water.consumed }} / {{ water.goal }} oz
-              </p>
-            </div>
-          </div>
+  <SignedIn>
+    <div class="page">
+      <header class="intro">
+        <div>
+          <h1>{{ greeting }}</h1>
         </div>
-        <p class="dial-card__note">
-          Score blends activity, hydration, and sleep data. Keep trending above
-          85% for steady recovery.
-          <br />
-          <span class="dial-card__note--muted">{{ sleep.note }}</span>
-        </p>
-      </article>
+        <div class="day-selector">
+          <label for="day-picker">Viewing date</label>
+          <input id="day-picker" type="date" v-model="selectedDate" />
+        </div>
+      </header>
 
-      <article class="card macros-card">
-        <header>
-          <p class="card__eyebrow">Macros</p>
-          <h2>Fuel targets</h2>
-        </header>
-        <ul>
-          <li v-for="macro in macros" :key="macro.label">
-            <div class="macro-row">
-              <div>
-                <p class="macro-row__label">{{ macro.label }}</p>
-                <p class="macro-row__value">
-                  {{ macro.consumed }} / {{ macro.goal }} {{ macro.unit }}
+      <section class="dashboard-grid">
+        <article class="card dial-card">
+          <header>
+            <p class="card__eyebrow">Daily dial</p>
+            <h2>Today’s score</h2>
+          </header>
+          <div class="dial-card__body">
+            <ClientOnly>
+              <VChart class="dial-chart" :option="gaugeOption" autoresize />
+            </ClientOnly>
+            <div class="dial-metrics">
+              <div class="mini-stat">
+                <p class="mini-stat__label">Sleep</p>
+                <p class="mini-stat__value">{{ sleep.hours }} hrs</p>
+                <p class="mini-stat__sub">{{ sleep.quality }}</p>
+              </div>
+              <div class="mini-stat">
+                <p class="mini-stat__label">Hydration</p>
+                <p class="mini-stat__value">{{ waterPercent }}%</p>
+                <p class="mini-stat__sub">
+                  {{ water.consumed }} / {{ water.goal }} oz
                 </p>
               </div>
-              <div class="macro-status">
-                <span class="macro-status__percent"
-                  >{{ macroPercent(macro) }}%</span
-                >
-                <span
-                  class="macro-pill"
-                  :class="{ 'macro-pill--hit': macro.consumed >= macro.goal }"
-                >
-                  {{ macro.consumed >= macro.goal ? "Hit" : "Tracking" }}
-                </span>
+            </div>
+          </div>
+          <p class="dial-card__note">
+            Index blends sleep quality, macro consistency, completed movement,
+            and logged meals. Keep trending above 85% for steady recovery.
+            <br />
+            <span class="dial-card__note--muted">{{ sleep.note }}</span>
+          </p>
+        </article>
+
+        <article class="card macros-card">
+          <header>
+            <p class="card__eyebrow">Macros</p>
+            <h2>Fuel targets</h2>
+          </header>
+          <ul>
+            <li v-for="macro in macros" :key="macro.label">
+              <div class="macro-row">
+                <div>
+                  <p class="macro-row__label">{{ macro.label }}</p>
+                  <p class="macro-row__value">
+                    {{ macro.consumed }} / {{ macro.goal }} {{ macro.unit }}
+                  </p>
+                </div>
+                <div class="macro-status">
+                  <span class="macro-status__percent"
+                    >{{ macroPercent(macro) }}%</span
+                  >
+                  <span
+                    class="macro-pill"
+                    :class="{ 'macro-pill--hit': macro.consumed >= macro.goal }"
+                  >
+                    {{ macro.consumed >= macro.goal ? "Hit" : "Tracking" }}
+                  </span>
+                </div>
+              </div>
+              <div class="progress macro-progress">
+                <span :style="{ width: `${macroPercent(macro)}%` }"></span>
+              </div>
+              <div class="macro-dial" :style="macroDialStyle(macro)">
+                <span>{{ macroPercent(macro) }}%</span>
+              </div>
+            </li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="split-grid">
+        <article class="card meals-card">
+          <header>
+            <div>
+              <p class="card__eyebrow">Meals</p>
+              <h2>Logged today</h2>
+            </div>
+          </header>
+          <ul class="meals-list">
+            <li v-if="isMealsLoading" class="list-placeholder">
+              Loading meals for {{ selectedDate }}…
+            </li>
+            <li v-else-if="!meals.length" class="list-placeholder">
+              No meals logged for {{ selectedDate }}.
+            </li>
+            <template v-else>
+              <li
+                v-for="meal in meals"
+                :key="`${meal.time}-${meal.name}-${meal.date}`"
+              >
+                <div class="meals-list__info">
+                  <p class="meals-list__time">{{ meal.time }}</p>
+                  <p class="meals-list__name">{{ meal.name }}</p>
+                  <p class="meals-list__meta">
+                    {{ meal.date }} · {{ meal.location }}
+                  </p>
+                  <p class="meals-list__macros">
+                    {{ meal.macros.protein }}P / {{ meal.macros.carbs }}C /
+                    {{ meal.macros.fat }}F
+                  </p>
+                </div>
+                <div class="meals-list__stats">
+                  <p class="meals-list__calories">{{ meal.calories }} cal</p>
+                </div>
+              </li>
+            </template>
+          </ul>
+          <form class="form" @submit.prevent="addMeal">
+            <div class="form__row">
+              <input
+                v-model="mealForm.time"
+                type="time"
+                aria-label="Meal time"
+                required
+              />
+              <input
+                v-model="mealForm.calories"
+                type="number"
+                min="0"
+                placeholder="Calories"
+                required
+              />
+            </div>
+            <div class="form__row form__row--date-note">
+              <input
+                v-model="mealForm.location"
+                type="text"
+                placeholder="Dining establishment"
+                required
+              />
+              <div class="date-note">
+                <span>Logging date</span>
+                <strong>{{ selectedDate }}</strong>
               </div>
             </div>
-            <div class="progress macro-progress">
-              <span :style="{ width: `${macroPercent(macro)}%` }"></span>
+            <div class="form__row">
+              <input
+                v-model="mealForm.name"
+                type="text"
+                placeholder="Meal description"
+                required
+              />
             </div>
-            <div class="macro-dial" :style="macroDialStyle(macro)">
-              <span>{{ macroPercent(macro) }}%</span>
+            <div class="form__row">
+              <input
+                v-model="mealForm.protein"
+                type="number"
+                min="0"
+                placeholder="Protein (g)"
+              />
+              <input
+                v-model="mealForm.carbs"
+                type="number"
+                min="0"
+                placeholder="Carbs (g)"
+              />
+              <input
+                v-model="mealForm.fat"
+                type="number"
+                min="0"
+                placeholder="Fat (g)"
+              />
             </div>
-          </li>
-        </ul>
-      </article>
-    </section>
-
-    <section class="stats-grid">
-      <article class="card ai-card">
-        <header>
-          <p class="card__eyebrow">AI copilot</p>
-          <h3>Need inspiration?</h3>
-        </header>
-        <p>
-          Meals, hydration cues, and activity pairings come together via AI
-          suggestions.
-        </p>
-        <button
-          class="btn btn--secondary"
-          type="button"
-          :disabled="aiStatus !== 'Idle'"
-          @click="handleAISuggestions"
-        >
-          {{ aiButtonLabel }}
-        </button>
-        <NuxtLink class="btn btn--blue-coral btn--stack" to="/suggestions">
-          Open suggestions page
-        </NuxtLink>
-      </article>
-    </section>
-
-    <section class="split-grid">
-      <article class="card meals-card">
-        <header>
-          <div>
-            <p class="card__eyebrow">Meals</p>
-            <h2>Logged today</h2>
-          </div>
-        </header>
-        <ul class="meals-list">
-          <li v-for="meal in meals" :key="`${meal.time}-${meal.name}`">
-            <div class="meals-list__info">
-              <p class="meals-list__time">{{ meal.time }}</p>
-              <p class="meals-list__name">{{ meal.name }}</p>
-              <p class="meals-list__meta">
-                {{ meal.date }} · {{ meal.location }}
-              </p>
-              <p class="meals-list__macros">
-                {{ meal.macros.protein }}P / {{ meal.macros.carbs }}C /
-                {{ meal.macros.fat }}F
-              </p>
-            </div>
-            <div class="meals-list__stats">
-              <p class="meals-list__calories">{{ meal.calories }} cal</p>
-            </div>
-          </li>
-        </ul>
-        <form class="form" @submit.prevent="addMeal">
-          <div class="form__row">
-            <input
-              v-model="mealForm.time"
-              type="time"
-              aria-label="Meal time"
-              required
-            />
-            <input
-              v-model="mealForm.date"
-              type="date"
-              aria-label="Date consumed"
-              required
-            />
-          </div>
-          <div class="form__row">
-            <input
-              v-model="mealForm.calories"
-              type="number"
-              min="0"
-              placeholder="Calories"
-              required
-            />
-            <input
-              v-model="mealForm.location"
-              type="text"
-              placeholder="Dining establishment"
-              required
-            />
-          </div>
-          <div class="form__row">
-            <input
-              v-model="mealForm.name"
-              type="text"
-              placeholder="Meal description"
-              required
-            />
-          </div>
-          <div class="form__row">
-            <input
-              v-model="mealForm.protein"
-              type="number"
-              min="0"
-              placeholder="Protein (g)"
-            />
-            <input
-              v-model="mealForm.carbs"
-              type="number"
-              min="0"
-              placeholder="Carbs (g)"
-            />
-            <input
-              v-model="mealForm.fat"
-              type="number"
-              min="0"
-              placeholder="Fat (g)"
-            />
-          </div>
-          <button class="btn btn--primary" type="submit">Add meal</button>
-        </form>
-      </article>
-
-      <article class="card activity-card">
-        <header>
-          <p class="card__eyebrow">Activity</p>
-          <h2>Movement log</h2>
-        </header>
-        <ul class="activity-list">
-          <li
-            v-for="activity in activities"
-            :key="`${activity.type}-${activity.date}-${activity.duration}`"
-          >
-            <div>
-              <p class="activity-list__name">{{ activity.type }}</p>
-              <p class="activity-list__meta">
-                {{ activity.date }} · {{ activity.duration }}
-              </p>
-            </div>
-            <div class="activity-list__details">
-              <span
-                class="activity-pill"
-                :class="{
-                  'activity-pill--planned': activity.status === 'Planned',
-                }"
+            <div class="form__actions">
+              <button
+                class="btn btn--primary"
+                type="submit"
+                aria-label="Add meal"
               >
-                {{ activity.status }}
-              </span>
-              <p class="activity-list__calories">{{ activity.calories }} cal</p>
+                Add Meal
+              </button>
+              <NuxtLink
+                to="/suggestions"
+                class="btn btn--ai"
+                aria-label="AI meal suggestions"
+              >
+                AI Meal Suggestions
+              </NuxtLink>
             </div>
-          </li>
-        </ul>
-        <form class="form" @submit.prevent="addActivity">
-          <div class="form__row">
-            <input
-              v-model="activityForm.type"
-              type="text"
-              placeholder="Activity type"
-              required
-            />
-            <input
-              v-model="activityForm.duration"
-              type="text"
-              placeholder="Duration e.g. 25 min"
-              required
-            />
-          </div>
-          <div class="form__row">
-            <input
-              v-model="activityForm.date"
-              type="date"
-              aria-label="Activity date"
-              required
-            />
-            <input
-              v-model="activityForm.calories"
-              type="number"
-              min="0"
-              placeholder="Calories"
-              required
-            />
-          </div>
-          <div class="form__row form__row--compact">
-            <select v-model="activityForm.status" aria-label="Completion state">
-              <option value="Completed">Completed</option>
-              <option value="Planned">Planned</option>
-            </select>
-          </div>
-          <button class="btn btn--primary" type="submit">Log activity</button>
-        </form>
-      </article>
-    </section>
-  </div>
+          </form>
+        </article>
+
+        <article class="card activity-card">
+          <header>
+            <p class="card__eyebrow">Activity</p>
+            <h2>Movement log</h2>
+          </header>
+          <ul class="activity-list">
+            <li v-if="isActivitiesLoading" class="list-placeholder">
+              Loading activity for {{ selectedDate }}…
+            </li>
+            <li v-else-if="!activities.length" class="list-placeholder">
+              No workouts logged for {{ selectedDate }}.
+            </li>
+            <template v-else>
+              <li
+                v-for="activity in activities"
+                :key="`${activity.type}-${activity.date}-${activity.duration}`"
+              >
+                <div>
+                  <p class="activity-list__name">{{ activity.type }}</p>
+                  <p class="activity-list__meta">
+                    {{ activity.date }} · {{ activity.duration }}
+                  </p>
+                </div>
+                <div class="activity-list__details">
+                  <span
+                    class="activity-pill"
+                    :class="{
+                      'activity-pill--planned': activity.status === 'Planned',
+                    }"
+                  >
+                    {{ activity.status }}
+                  </span>
+                  <p class="activity-list__calories">
+                    {{ activity.calories }} cal
+                  </p>
+                </div>
+              </li>
+            </template>
+          </ul>
+          <form class="form" @submit.prevent="addActivity">
+            <div class="form__row">
+              <input
+                v-model="activityForm.type"
+                type="text"
+                placeholder="Activity type"
+                required
+              />
+              <input
+                v-model="activityForm.duration"
+                type="text"
+                placeholder="Duration e.g. 25 min"
+                required
+              />
+            </div>
+            <div class="form__row form__row--date-note">
+              <input
+                v-model="activityForm.calories"
+                type="number"
+                min="0"
+                placeholder="Calories"
+                required
+              />
+              <div class="date-note">
+                <span>Logging date</span>
+                <strong>{{ selectedDate }}</strong>
+              </div>
+            </div>
+            <div class="form__row form__row--compact">
+              <select
+                v-model="activityForm.status"
+                aria-label="Completion state"
+              >
+                <option value="Completed">Completed</option>
+                <option value="Planned">Planned</option>
+              </select>
+            </div>
+            <div class="form__actions form__actions--single">
+              <button class="btn btn--primary" type="submit">
+                Log activity
+              </button>
+            </div>
+          </form>
+        </article>
+      </section>
+    </div>
+  </SignedIn>
+
+  <SignedOut>
+    <!-- If the user is signed out, immediately redirect to Clerk hosted sign-in -->
+    <RedirectToSignIn />
+  </SignedOut>
 </template>
 
 <style scoped>
@@ -685,6 +745,20 @@ useSeoMeta({
   color: #d9d7d2;
 }
 
+.day-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.day-selector label {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #ffb08f;
+}
+
 .eyebrow,
 .card__eyebrow {
   text-transform: uppercase;
@@ -709,16 +783,16 @@ useSeoMeta({
 }
 
 .btn--primary {
-  background: linear-gradient(120deg, #ff8367, #ffc083);
-  color: #111215;
-  box-shadow: 0 12px 32px rgba(255, 131, 103, 0.35);
+  background: linear-gradient(120deg, #4f9cff, #3b6fe1);
+  color: #f5fbff;
+  box-shadow: 0 12px 32px rgba(63, 121, 228, 0.35);
 }
 
 .btn--blue-coral {
-  background: linear-gradient(120deg, #4facfe, #ff8367);
-  color: #ffffff;
-  box-shadow: 0 12px 32px rgba(79, 172, 254, 0.18);
-  border: 1px solid transparent;
+  background: linear-gradient(120deg, #7acbff, #4f9cff);
+  color: #041426;
+  box-shadow: 0 12px 32px rgba(74, 169, 255, 0.25);
+  border: 1px solid rgba(79, 156, 255, 0.4);
   text-decoration: none;
 }
 
@@ -728,9 +802,9 @@ useSeoMeta({
 }
 
 .btn--secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8f7f4;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(79, 156, 255, 0.15);
+  color: #dfe9ff;
+  border: 1px solid rgba(79, 156, 255, 0.4);
 }
 
 .btn:hover:not(:disabled) {
@@ -766,6 +840,12 @@ useSeoMeta({
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+/* Make the meals and activity cards slightly more compact vertically */
+.meals-card,
+.activity-card {
+  padding: 1.25rem;
 }
 
 .dial-card {
@@ -841,7 +921,7 @@ useSeoMeta({
    cause the card to resize unexpectedly. Allow scrolling when content grows. */
 .meals-list,
 .activity-list {
-  min-height: 180px; /* room for ~3 items */
+  min-height: 120px; /* reduced to shrink card height */
   max-height: 420px; /* prevent runaway growth */
   overflow: auto;
 }
@@ -950,6 +1030,13 @@ useSeoMeta({
   gap: 1.5rem;
 }
 
+.activity-card,
+.meals-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .meals-list li,
 .activity-list li {
   display: flex;
@@ -963,6 +1050,29 @@ useSeoMeta({
   display: flex;
   align-items: center;
   gap: 0.85rem;
+}
+
+.activity-card .activity-list {
+  flex-grow: 1;
+}
+
+.activity-card .form {
+  margin-top: auto;
+}
+
+/* Ensure meals card behaves the same as activity: the list grows and the form
+   is anchored to the bottom so there's no awkward gap under inputs */
+.meals-card {
+  min-height: 0; /* allow card to shrink below content if necessary */
+}
+.activity-card {
+  min-height: 0;
+}
+.meals-card .meals-list {
+  flex-grow: 1;
+}
+.meals-card .form {
+  margin-top: auto;
 }
 
 .meals-list__time,
@@ -1019,8 +1129,83 @@ useSeoMeta({
 .form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.form__row--date-note {
+  align-items: stretch;
+}
+
+.form__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  margin-top: 0.25rem;
+  align-items: center;
+}
+
+/* Make action buttons share the full row equally (50/50) */
+.form__actions > * {
+  flex: 1 1 0;
+  min-width: 0; /* allow shrinking inside gap */
+}
+.form__actions .btn {
+  width: 100%;
+  height: 40px; /* match input height for visual alignment */
+  padding: 0 0.75rem;
+}
+
+.date-note {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.5rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 150px;
+}
+
+.date-note span {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #b8b4ad;
+}
+
+.date-note strong {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  color: #f8f7f4;
+}
+
+.list-placeholder {
+  padding: 0.35rem 0;
+  color: #a7a39b;
+  font-style: italic;
+  display: block;
+  border-bottom: none;
+}
+
+.btn--ai {
+  background: linear-gradient(
+    120deg,
+    #ff7a9a,
+    #ffb86b
+  ); /* standout warm gradient */
+  color: #ffffff !important;
+  box-shadow: 0 12px 32px rgba(255, 138, 121, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none; /* remove underline */
+}
+
+.form__actions--single {
+  justify-content: flex-end;
 }
 
 /* Skeleton / placeholder helper so you can show reserved slots while data loads */
@@ -1036,7 +1221,22 @@ useSeoMeta({
 
 .form__row {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Ensure each input in a row shares available space and stretches to the same height
+   so inputs across sibling cards align vertically */
+.form__row > * {
+  flex: 1 1 0;
+  min-width: 0;
+  display: block;
+}
+
+/* Consistent, slightly smaller input/select height to reduce vertical footprint */
+input,
+select {
+  height: 40px;
 }
 
 .form__row--compact {
@@ -1046,12 +1246,13 @@ useSeoMeta({
 input,
 select {
   width: 100%;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: #f8f7f4;
-  padding: 0.85rem 1rem;
-  font-size: 0.95rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.92rem;
+  box-sizing: border-box;
 }
 
 input::placeholder {
@@ -1083,6 +1284,10 @@ select {
   .intro {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .day-selector {
+    width: 100%;
   }
 
   .btn {

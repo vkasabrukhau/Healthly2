@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted } from "vue";
+import { computed, reactive, ref, onMounted, watch } from "vue";
 import { useCookie, useRoute, useRouter, useSeoMeta, useUser } from "#imports";
 
 useSeoMeta({
@@ -46,20 +46,51 @@ const clerkUserId = computed(() => {
   return u?.id || u?.userId || null;
 });
 
+const maintenanceOptions = [
+  {
+    value: "sedentary",
+    label: "Sedentary — 1400–1700 kcal",
+    hint: "Little or no exercise; desk job",
+  },
+  {
+    value: "light",
+    label: "Light activity — 1700–2000 kcal",
+    hint: "Light exercise 1–3x/week",
+  },
+  {
+    value: "moderate",
+    label: "Moderate — 2000–2400 kcal",
+    hint: "Exercise 3–5x/week",
+  },
+  {
+    value: "active",
+    label: "Active — 2400–2800 kcal",
+    hint: "Hard exercise 6–7x/week or physical job",
+  },
+  {
+    value: "very_active",
+    label: "Very active — 2800+ kcal",
+    hint: "Athlete-level training",
+  },
+];
+
 const form = reactive({
   firstName: "",
   lastName: "",
   dob: "",
+  weightKg: "",
+  heightFeet: "",
+  heightInches: "",
+  maintenance:
+    maintenanceOptions?.[1]?.value ?? maintenanceOptions?.[0]?.value ?? "",
   exerciseLevel: exerciseLevels?.[1]?.value ?? exerciseLevels?.[0]?.value ?? "",
   exerciseFrequency:
     frequencyOptions?.[1]?.value ?? frequencyOptions?.[0]?.value ?? "",
-  photoDataUrl: "",
 });
 
 const attemptedSubmit = ref(false);
-const photoName = ref<string>("");
-const photoError = ref("");
 const isSubmitting = ref(false);
+const clerkError = ref("");
 
 const redirectTarget = computed(() => {
   const raw = Array.isArray(route.query.redirect)
@@ -75,21 +106,23 @@ const age = computed(() => {
   const now = new Date();
   let years = now.getFullYear() - dobDate.getFullYear();
   const monthDiff = now.getMonth() - dobDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dobDate.getDate())) {
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dobDate.getDate()))
     years -= 1;
-  }
   return years >= 0 ? years.toString() : "--";
 });
 
-const levelLabel = computed(
-  () =>
-    exerciseLevels.find((option) => option.value === form.exerciseLevel)?.label
-);
+const heightCm = computed(() => {
+  const f = Number(form.heightFeet) || 0;
+  const i = Number(form.heightInches) || 0;
+  const cm = f * 30.48 + i * 2.54;
+  return cm > 0 ? Math.round(cm * 10) / 10 : null;
+});
 
+const levelLabel = computed(
+  () => exerciseLevels.find((o) => o.value === form.exerciseLevel)?.label
+);
 const frequencyLabel = computed(
-  () =>
-    frequencyOptions.find((option) => option.value === form.exerciseFrequency)
-      ?.label
+  () => frequencyOptions.find((o) => o.value === form.exerciseFrequency)?.label
 );
 
 const isFormComplete = computed(() =>
@@ -98,52 +131,67 @@ const isFormComplete = computed(() =>
       form.lastName &&
       form.dob &&
       age.value !== "--" &&
+      form.weightKg &&
+      form.heightFeet &&
+      form.maintenance &&
       form.exerciseLevel &&
-      form.exerciseFrequency &&
-      form.photoDataUrl &&
-      !photoError.value
+      form.exerciseFrequency
   )
 );
-
 const isUserReady = computed(() => Boolean(clerkUserId.value));
 const canSubmit = computed(
   () => isFormComplete.value && isUserReady.value && !isSubmitting.value
 );
 
-onMounted(() => {
+onMounted(async () => {
   if (onboardingCookie.value === "true") {
     router.replace(redirectTarget.value);
+    return;
+  }
+
+  const uid = clerkUserId.value;
+  if (uid) {
+    const cu = (user.value as any) || {};
+    form.firstName = form.firstName || cu?.firstName || cu?.given_name || "";
+    form.lastName = form.lastName || cu?.lastName || cu?.family_name || "";
+
+    try {
+      const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
+      if (resp && resp.exists) {
+        onboardingCookie.value = "true";
+        router.replace(redirectTarget.value);
+        return;
+      }
+    } catch (e) {
+      if (process.dev) console.warn("Onboarding server check failed:", e);
+    }
   }
 });
 
-const handlePhotoChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) {
-    form.photoDataUrl = "";
-    photoName.value = "";
-    photoError.value = "";
-    return;
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    photoError.value = "Please choose an image under 2 MB.";
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    form.photoDataUrl = reader.result as string;
-    photoName.value = file.name;
-    photoError.value = "";
-  };
-  reader.readAsDataURL(file);
-};
+watch(
+  () => (user.value as any)?.id || (user.value as any)?.userId,
+  async (uid) => {
+    if (!uid) return;
+    const cu = (user.value as any) || {};
+    form.firstName = form.firstName || cu?.firstName || cu?.given_name || "";
+    form.lastName = form.lastName || cu?.lastName || cu?.family_name || "";
+    try {
+      const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
+      if (resp && resp.exists) {
+        onboardingCookie.value = "true";
+        router.replace(redirectTarget.value);
+      }
+    } catch (e) {
+      if (process.dev)
+        console.warn("Onboarding server check failed (watch):", e);
+    }
+  },
+  { immediate: true }
+);
 
 const handleSubmit = async () => {
   attemptedSubmit.value = true;
-  if (!canSubmit.value) {
-    return;
-  }
-
+  if (!canSubmit.value) return;
   const userId = clerkUserId.value;
   if (!userId) {
     console.error("Unable to persist profile without a Clerk user ID");
@@ -165,7 +213,7 @@ const handleSubmit = async () => {
     );
   }
 
-  let persisted = false;
+  // Persist profile to Mongo first
   try {
     await $fetch("/api/users", {
       method: "POST",
@@ -175,33 +223,53 @@ const handleSubmit = async () => {
         lastName: form.lastName,
         dob: form.dob,
         age: Number(age.value),
+        weightKg: Number(form.weightKg),
+        heightCm: heightCm.value ?? null,
+        maintenance: form.maintenance,
         exerciseLevel: form.exerciseLevel,
         exerciseFrequency: form.exerciseFrequency,
-        photoDataUrl: form.photoDataUrl,
       },
     });
-    persisted = true;
   } catch (error) {
     console.error("Failed to persist onboarding profile", error);
-    // Optionally, show a UI error message instead of proceeding.
-  } finally {
+    clerkError.value = "Failed to save profile. Please try again.";
     isSubmitting.value = false;
+    return;
   }
 
-  // Only mark onboarding complete (cookie) after we successfully persisted user profile.
-  if (persisted) {
-    onboardingCookie.value = "true";
-    router.push(redirectTarget.value);
+  // Now attempt to sync with Clerk; if that partial sync fails, allow onboarding to
+  // complete but record the error so it can be retried later.
+  try {
+    const resp: any = await $fetch("/api/clerk/update-user", {
+      method: "POST",
+      body: {
+        userId,
+        firstName: form.firstName,
+        lastName: form.lastName,
+      },
+    });
+    if (!(resp && resp.clerkUpdated)) {
+      clerkError.value =
+        resp?.error || "Failed to sync with authentication provider.";
+      if (process.dev) console.warn("Clerk sync partial failure:", resp?.error);
+    }
+  } catch (e) {
+    console.error("Failed to update Clerk profile", e);
+    clerkError.value =
+      "Failed to update authentication profile. Please try again later.";
   }
+
+  // Mark onboarding complete (cookie) so user can proceed regardless of Clerk sync.
+  onboardingCookie.value = "true";
+  isSubmitting.value = false;
+  router.push(redirectTarget.value);
 };
 </script>
-
 <template>
   <div class="onboarding-page">
     <section class="intro">
-      <p class="eyebrow">Welcome to Healthly</p>
-      <h1>Let’s get to know you</h1>
-      <p>
+      <h1>Complete your profile</h1>
+      <p class="lead">
         Confirm a few details so we can personalize targets, remind you of the
         right habits, and show the insights that matter the first time you log
         in.
@@ -237,6 +305,64 @@ const handleSubmit = async () => {
                 >Enter your last name.</small
               >
             </label>
+            <label>
+              <span>Weight (kg)</span>
+              <input
+                v-model.number="form.weightKg"
+                type="number"
+                min="20"
+                max="500"
+                step="0.1"
+                placeholder="e.g. 72.5"
+                required
+              />
+              <small v-if="attemptedSubmit && !form.weightKg"
+                >Enter your weight in kilograms.</small
+              >
+            </label>
+            <label>
+              <span>Height</span>
+              <div style="display: flex; gap: 0.5rem">
+                <input
+                  v-model.number="form.heightFeet"
+                  type="number"
+                  min="3"
+                  max="8"
+                  step="1"
+                  placeholder="ft"
+                  style="width: 5.5rem"
+                  required
+                />
+                <input
+                  v-model.number="form.heightInches"
+                  type="number"
+                  min="0"
+                  max="11"
+                  step="1"
+                  placeholder="in"
+                  style="width: 5.5rem"
+                />
+              </div>
+              <small v-if="attemptedSubmit && !form.heightFeet">
+                Enter your height in feet and inches.
+              </small>
+            </label>
+            <label>
+              <span>Estimated maintenance calories</span>
+              <select v-model="form.maintenance">
+                <option
+                  v-for="opt in maintenanceOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </option>
+              </select>
+              <small class="muted"
+                >Examples: choose the range that best matches your typical
+                activity level.</small
+              >
+            </label>
             <label class="dob-field">
               <span>Date of birth</span>
               <input v-model="form.dob" type="date" required />
@@ -244,34 +370,9 @@ const handleSubmit = async () => {
                 >Provide a valid date of birth.</small
               >
             </label>
-            <div class="age-pill">
-              <p>Age</p>
-              <strong>{{ age }}</strong>
-            </div>
           </div>
 
-          <div class="photo-upload">
-            <label class="upload-label">
-              <span>Profile photo</span>
-              <input type="file" accept="image/*" @change="handlePhotoChange" />
-              <small v-if="photoName">{{ photoName }}</small>
-              <small v-if="attemptedSubmit && !form.photoDataUrl"
-                >Please upload a photo so we can identify your profile.</small
-              >
-              <small v-if="photoError" class="error">{{ photoError }}</small>
-            </label>
-            <div
-              class="photo-preview"
-              :class="{ 'photo-preview--empty': !form.photoDataUrl }"
-            >
-              <img
-                v-if="form.photoDataUrl"
-                :src="form.photoDataUrl"
-                alt="Profile preview"
-              />
-              <p v-else>Preview will appear here.</p>
-            </div>
-          </div>
+          <!-- Profile photo is intentionally omitted during onboarding. Users can add or change their photo later in Account settings. -->
 
           <div class="selectors">
             <label>
@@ -303,6 +404,9 @@ const handleSubmit = async () => {
           <button class="btn btn--primary" type="submit" :disabled="!canSubmit">
             {{ isSubmitting ? "Saving…" : "Finish onboarding" }}
           </button>
+          <p v-if="clerkError" class="error" style="margin-top: 0.5rem">
+            {{ clerkError }}
+          </p>
         </form>
       </section>
 
@@ -323,6 +427,40 @@ const handleSubmit = async () => {
           <li>
             <p class="label">Age</p>
             <p class="value">{{ age }}</p>
+          </li>
+          <li>
+            <p class="label">Weight</p>
+            <p class="value">
+              {{ form.weightKg ? form.weightKg + " kg" : "—" }}
+            </p>
+          </li>
+          <li>
+            <p class="label">Height</p>
+            <p class="value">
+              {{
+                form.heightFeet
+                  ? form.heightFeet + " ft " + (form.heightInches || 0) + " in"
+                  : "—"
+              }}
+              <span v-if="heightCm"> — {{ heightCm }} cm</span>
+            </p>
+          </li>
+          <li>
+            <p class="label">Maintenance</p>
+            <p class="value">
+              {{
+                maintenanceOptions.find((o) => o.value === form.maintenance)
+                  ?.label || "—"
+              }}
+            </p>
+          </li>
+          <li>
+            <p class="label">Exercise level</p>
+            <p class="value">{{ levelLabel || "—" }}</p>
+          </li>
+          <li>
+            <p class="label">Frequency</p>
+            <p class="value">{{ frequencyLabel || "—" }}</p>
           </li>
           <li>
             <p class="label">Exercise level</p>

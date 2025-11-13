@@ -13,13 +13,23 @@ type FoodDoc = {
   diningEstablishment: string;
   macros: MacroBreakdown;
   dateConsumed: string;
+  dayKey: string;
+  time?: string;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<Partial<FoodDoc>>(event);
-  const { userId, itemName, calories, diningEstablishment, macros, dateConsumed } = body;
+  const body = await readBody<
+    Partial<FoodDoc> & {
+      userId?: string;
+      itemName?: string;
+      diningEstablishment?: string;
+      dateConsumed?: string;
+      time?: string;
+    }
+  >(event);
+  const { userId, itemName, calories, diningEstablishment, macros, dateConsumed, time } = body;
 
   if (!userId || !itemName || !diningEstablishment || !dateConsumed) {
     throw createError({ statusCode: 400, statusMessage: "Missing required food fields" });
@@ -33,6 +43,7 @@ export default defineEventHandler(async (event) => {
   if (Number.isNaN(parsedDate.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "Invalid date consumed" });
   }
+  const dayKey = parsedDate.toISOString().slice(0, 10);
 
   const macroPayload: MacroBreakdown = {
     protein: Number(macros?.protein ?? 0),
@@ -49,6 +60,8 @@ export default defineEventHandler(async (event) => {
     diningEstablishment: diningEstablishment.trim(),
     macros: macroPayload,
     dateConsumed: parsedDate.toISOString(),
+    dayKey,
+    time: time?.trim(),
     createdAt: now,
     updatedAt: now,
   };

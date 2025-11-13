@@ -1,60 +1,136 @@
 <script setup lang="ts">
-import { useUser, useClerk, useCookie, useRouter } from "#imports";
+import { computed, watch, ref } from "vue";
+import { useCookie, useRoute, useRouter, useUser } from "#imports";
 
-// show nav only when signed in; provide sign-out behavior
-const { isSignedIn } = useUser();
-const clerk = (
-  typeof useClerk === "function" ? (useClerk() as any) : null
-) as any;
-const onboardingCookie = useCookie("healthly-onboarded");
+const route = useRoute();
 const router = useRouter();
+const onboardingCookie = useCookie("healthly-onboarded");
+const { user, isSignedIn } = useUser();
 
-const handleSignOut = async () => {
-  try {
-    if (clerk && typeof clerk.signOut === "function") {
-      await clerk.signOut();
-    } else if (process.client && (window as any).Clerk?.signOut) {
-      await (window as any).Clerk.signOut();
-    }
-  } catch (e) {
-    if (process.dev) console.warn("Sign out failed:", e);
-  } finally {
-    // clear onboarding cookie so next sign-in re-checks server profile
-    try {
+const pageReady = ref(true);
+
+const showNav = computed(
+  () =>
+    isSignedIn.value &&
+    route.path !== "/" &&
+    !route.path.startsWith("/onboarding")
+);
+
+watch(
+  () => isSignedIn.value,
+  (signedIn) => {
+    if (!signedIn) {
       onboardingCookie.value = "false";
-    } catch (e) {}
-    router.push("/");
+      router.replace("/");
+      pageReady.value = true;
+    }
   }
+);
+
+// When a user signs in (client-side), check their server profile and route to
+// onboarding if they don't have one. This ensures SSO users without profiles
+// get the onboarding flow immediately after signing in.
+// When sign-in occurs, run the onboarding server check before rendering the
+// page. This prevents a brief flash where the dashboard shows before the
+// client-side redirect to onboarding executes.
+watch(
+  () => isSignedIn.value,
+  async (signedIn) => {
+    if (!signedIn) return;
+    // Only run this client-side after Clerk has populated user data.
+    if (process.server) return;
+    const uid = (user.value as any)?.id || (user.value as any)?.userId || null;
+    if (!uid) return;
+
+    // Block rendering while we check the server for an existing profile.
+    pageReady.value = false;
+    try {
+      const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
+      if (resp && resp.exists) {
+        onboardingCookie.value = "true";
+        pageReady.value = true;
+        return;
+      }
+      // If no profile exists, route to onboarding and keep the page blocked briefly.
+      const redirect = encodeURIComponent(
+        router.currentRoute.value.fullPath || "/dashboard"
+      );
+      await router.replace(`/onboarding?redirect=${redirect}`);
+    } catch (e) {
+      if (process.dev)
+        console.warn("Onboarding server check on sign-in failed:", e);
+    } finally {
+      // Allow rendering after check/redirect completes.
+      pageReady.value = true;
+    }
+  }
+);
+
+const displayName = computed(() => {
+  const value = user.value as any;
+  return (
+    value?.fullName ||
+    value?.firstName ||
+    value?.given_name ||
+    value?.username ||
+    "Member"
+  );
+});
+
+const clerkId = computed(() => (user.value as any)?.id || "--");
+
+const userButtonAppearance = {
+  elements: {
+    userButtonOuterIdentifier: { color: "#dfe9ff" },
+  },
 };
 </script>
 
 <template>
   <div id="app">
-    <header v-if="isSignedIn" class="site-header">
+    <header v-if="showNav" class="site-header">
       <div class="site-brand">
-        <NuxtLink to="/dashboard" class="brand-link">Healthly</NuxtLink>
+        <NuxtLink to="/dashboard" class="brand-link">
+          <img src="/ioshealth.png" alt="Healthly" class="brand-icon" />
+          <span class="brand-text">Healthly</span>
+        </NuxtLink>
       </div>
       <nav class="site-nav" aria-label="Main navigation">
         <NuxtLink
           to="/dashboard"
           class="nav-link"
           exact-active-class="nav-link--active"
-          >Home</NuxtLink
+          >Dashboard</NuxtLink
         >
         <NuxtLink to="/trends" class="nav-link" active-class="nav-link--active"
           >Trends</NuxtLink
         >
+        <NuxtLink
+          to="/suggestions"
+          class="nav-link"
+          active-class="nav-link--active"
+          >Suggestions</NuxtLink
+        >
         <NuxtLink to="/account" class="nav-link" active-class="nav-link--active"
           >Account</NuxtLink
         >
-        <button class="nav-link btn-plain" @click="handleSignOut">
-          Sign out
-        </button>
       </nav>
+      <div class="user-module" aria-live="polite">
+        <div class="user-meta">
+          <p class="user-meta__name">{{ displayName }}</p>
+        </div>
+        <ClientOnly>
+          <UserButton
+            :after-sign-out-url="'/'"
+            :appearance="userButtonAppearance"
+          />
+        </ClientOnly>
+      </div>
     </header>
 
     <main>
-      <NuxtPage />
+      <div v-if="!pageReady" class="page-blocker" aria-hidden="true"></div>
+      <NuxtPage v-else />
     </main>
   </div>
 </template>
@@ -79,7 +155,19 @@ const handleSignOut = async () => {
   font-weight: 700;
   color: white;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.1rem;
+}
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: inline-block;
+}
+.brand-text {
+  line-height: 1;
 }
 .site-nav {
   display: flex;
@@ -102,8 +190,30 @@ const handleSignOut = async () => {
   color: white;
 }
 .nav-link--active {
-  background: linear-gradient(120deg, #4facfe, var(--brand-color));
-  color: #071019;
+  background: linear-gradient(120deg, #4f9cff, #3b6fe1);
+  color: #fff;
+  font-weight: 600;
+}
+.user-module {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-meta {
+  text-align: right;
+}
+
+.user-meta__name {
+  margin: 0;
+  font-weight: 600;
+  color: #f8f7f4;
+}
+
+.user-meta__id {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 main {
   min-height: calc(100vh - 64px);

@@ -7,6 +7,7 @@ type ActivityDoc = {
   date: string;
   calories: number;
   status: "Completed" | "Planned";
+  dayKey: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,6 +30,7 @@ export default defineEventHandler(async (event) => {
   if (Number.isNaN(parsedDate.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "Invalid date" });
   }
+  const dayKey = parsedDate.toISOString().slice(0, 10);
 
   const collection = await getCollection<ActivityDoc>("activities");
   const now = new Date();
@@ -37,6 +39,7 @@ export default defineEventHandler(async (event) => {
     type: type.trim(),
     duration: duration.trim(),
     date: parsedDate.toISOString(),
+    dayKey,
     calories,
     status,
     createdAt: now,
