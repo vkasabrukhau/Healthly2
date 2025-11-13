@@ -13,7 +13,8 @@ export default defineNuxtConfig({
     mongoUri,
     mongoDbName,
     clerkSecretKey: process.env.CLERK_SECRET_KEY,
-    openrouterKey: process.env.OPENROUTER_API_KEY,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
     // Exposed to the client
     public: {
       clerkPublishableKey: process.env.NUXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

@@ -897,6 +897,17 @@ watch(
         method: "POST",
         body: { userId: userId.value, mealPlanMode: mode },
       });
+      // After updating the meal plan mode, regenerate baseline metrics
+      // so the user's goals reflect the new plan. Non-fatal on failure.
+      try {
+        await $fetch("/api/openrouter/regenerate-baseline", {
+          method: "POST",
+          body: { userId: userId.value, reason: "mealPlanChange" },
+        });
+      } catch (e) {
+        if (process.dev)
+          console.warn("Failed to regenerate baseline metrics:", e);
+      }
     } catch (err) {
       if (process.dev) console.warn("Failed to save mealPlanMode:", err);
     }

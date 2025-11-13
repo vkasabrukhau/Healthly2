@@ -12,6 +12,14 @@ type UserProfileDoc = {
   photoDataUrl?: string;
   mealPlanMode?: "cut" | "maintain" | "bulk";
   currentWeight?: number;
+  baselineMetrics?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    sugar: number;
+    sodium: number;
+  };
   createdAt: Date;
   updatedAt: Date;
 };
@@ -94,6 +102,36 @@ export default defineEventHandler(async (event) => {
       { $set: setObj, $setOnInsert: { createdAt: now } },
       { upsert: true }
     );
+
+    // Attempt to generate tailored baseline metrics via OpenRouter and persist
+    try {
+      const { generateMacroGoalsForOnboarding } = await import(
+        "./utils/openrouter"
+      );
+      const baseline = await generateMacroGoalsForOnboarding({
+        userId,
+        body: {
+          firstName: (firstName as string) || undefined,
+          lastName: (lastName as string) || undefined,
+          age: age as number,
+          dob: (parsedDob as Date).toISOString(),
+          exerciseLevel,
+          exerciseFrequency,
+          mealPlanMode: (body as any).mealPlanMode ?? undefined,
+          heightCm: (body as any).heightCm ?? null,
+          weight: initialWeight ?? null,
+          waterGoal: (body as any).waterGoal ?? null,
+        },
+      });
+      if (baseline) {
+        await collection.updateOne(
+          { userId },
+          { $set: { baselineMetrics: baseline, updatedAt: new Date() } }
+        );
+      }
+    } catch (e) {
+      if (process.dev) console.warn("Baseline metric generation failed:", e);
+    }
 
     // If an initial weight was provided during onboarding, also insert
     // a historical weight entry for today's dayKey so history is seeded.
