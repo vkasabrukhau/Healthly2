@@ -42,7 +42,15 @@ type ActivityEntry = {
   status: ActivityStatus;
 };
 
-const macros = ref<MacroEntry[]>([]);
+// Only track essential macros: calories, protein, carbs, fat, sugar, salt
+const macros = ref<MacroEntry[]>([
+  { label: "Calories", consumed: 0, goal: 0, unit: "kcal" },
+  { label: "Protein", consumed: 0, goal: 0, unit: "g" },
+  { label: "Carbs", consumed: 0, goal: 0, unit: "g" },
+  { label: "Fat", consumed: 0, goal: 0, unit: "g" },
+  { label: "Sugar", consumed: 0, goal: 0, unit: "g" },
+  { label: "Salt", consumed: 0, goal: 0, unit: "mg" },
+]);
 
 const sleep = reactive({
   hours: 0,
@@ -51,6 +59,17 @@ const sleep = reactive({
 });
 
 const water = reactive({ consumed: 0, goal: 0 });
+
+const sleepForm = reactive({
+  hours: "",
+  quality: "",
+  note: "",
+});
+
+const waterForm = reactive({
+  consumed: "",
+  goal: "",
+});
 
 const today = new Date().toISOString().slice(0, 10);
 const selectedDate = ref(today);
@@ -76,8 +95,11 @@ const activityForm = reactive({
 
 const aiStatus = ref("Idle");
 
-const macroPercent = (macro: MacroEntry) =>
-  Math.min(100, Math.round((macro.consumed / macro.goal) * 100));
+const macroPercent = (macro: MacroEntry) => {
+  // Avoid divide-by-zero when goals are not yet set
+  if (!macro.goal || macro.goal <= 0) return 0;
+  return Math.min(100, Math.round((macro.consumed / macro.goal) * 100));
+};
 
 const macroDialStyle = (macro: MacroEntry) => {
   const percent = macroPercent(macro);
@@ -247,7 +269,9 @@ const fetchMealsForDay = async () => {
       name: item.itemName || item.name || "Meal",
       calories: Number(item.calories) || 0,
       location: item.diningEstablishment || "Unknown",
-      date: item.dayKey || normalizeDayString(item.dateConsumed || selectedDate.value),
+      date:
+        item.dayKey ||
+        normalizeDayString(item.dateConsumed || selectedDate.value),
       macros: {
         protein: Number(item.macros?.protein ?? 0),
         carbs: Number(item.macros?.carbs ?? 0),
@@ -287,6 +311,61 @@ const fetchActivitiesForDay = async () => {
   }
 };
 
+// Sleep & water loaders (defined here so they're available to the watchers below)
+const isSleepLoading = ref(false);
+const isWaterLoading = ref(false);
+
+const fetchSleepForDay = async () => {
+  if (!userId.value || !selectedDate.value) return;
+  isSleepLoading.value = true;
+  try {
+    const response = await $fetch(`/api/sleep/${userId.value}`, {
+      params: { date: selectedDate.value },
+    });
+    const entry = (response as any)?.entry;
+    if (entry) {
+      sleep.hours = Number(entry.hours) || 0;
+      sleep.quality = entry.quality || "";
+      sleep.note = entry.note || "";
+    } else {
+      sleep.hours = 0;
+      sleep.quality = "";
+      sleep.note = "";
+    }
+    sleepForm.hours = sleep.hours ? String(sleep.hours) : "";
+    sleepForm.quality = sleep.quality;
+    sleepForm.note = sleep.note;
+  } catch (error) {
+    if (process.dev) console.error("Failed to load sleep", error);
+  } finally {
+    isSleepLoading.value = false;
+  }
+};
+
+const fetchWaterForDay = async () => {
+  if (!userId.value || !selectedDate.value) return;
+  isWaterLoading.value = true;
+  try {
+    const response = await $fetch(`/api/water/${userId.value}`, {
+      params: { date: selectedDate.value },
+    });
+    const entry = (response as any)?.entry;
+    if (entry) {
+      water.consumed = Number(entry.consumed) || 0;
+      water.goal = Number(entry.goal) || 0;
+    } else {
+      water.consumed = 0;
+      water.goal = 0;
+    }
+    waterForm.consumed = water.consumed ? String(water.consumed) : "";
+    waterForm.goal = water.goal ? String(water.goal) : "";
+  } catch (error) {
+    if (process.dev) console.error("Failed to load water", error);
+  } finally {
+    isWaterLoading.value = false;
+  }
+};
+
 watch(
   () => selectedDate.value,
   (val) => {
@@ -307,9 +386,21 @@ watch(
     if (uid && day) {
       fetchMealsForDay();
       fetchActivitiesForDay();
+      fetchSleepForDay();
+      fetchWaterForDay();
     } else {
       meals.value = [];
       activities.value = [];
+      sleep.hours = 0;
+      sleep.quality = "";
+      sleep.note = "";
+      sleepForm.hours = "";
+      sleepForm.quality = "";
+      sleepForm.note = "";
+      water.consumed = 0;
+      water.goal = 0;
+      waterForm.consumed = "";
+      waterForm.goal = "";
     }
   },
   { immediate: true }
@@ -405,6 +496,47 @@ const addActivity = async () => {
   activityForm.duration = "";
   activityForm.calories = "";
   activityForm.status = "Completed";
+};
+
+const saveSleep = async () => {
+  if (!userId.value || !sleepForm.hours || !sleepForm.quality) {
+    return;
+  }
+  try {
+    await $fetch("/api/sleep", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        date: selectedDate.value,
+        hours: Number(sleepForm.hours),
+        quality: sleepForm.quality,
+        note: sleepForm.note,
+      },
+    });
+    await fetchSleepForDay();
+  } catch (error) {
+    console.error("Failed to save sleep", error);
+  }
+};
+
+const saveWater = async () => {
+  if (!userId.value || !waterForm.goal || !waterForm.consumed) {
+    return;
+  }
+  try {
+    await $fetch("/api/water", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        date: selectedDate.value,
+        consumed: Number(waterForm.consumed),
+        goal: Number(waterForm.goal),
+      },
+    });
+    await fetchWaterForDay();
+  } catch (error) {
+    console.error("Failed to save water", error);
+  }
 };
 
 const handleAISuggestions = () => {
@@ -504,6 +636,101 @@ useSeoMeta({
         </article>
       </section>
 
+      <section class="stats-grid">
+        <article class="card sleep-card">
+          <header>
+            <p class="card__eyebrow">Sleep</p>
+            <h3 v-if="!isSleepLoading">{{ sleep.hours }} hrs</h3>
+            <h3 v-else>Loading…</h3>
+          </header>
+          <p class="card__sub">
+            {{ sleep.quality || "Add today’s quality when you’re ready." }}
+          </p>
+          <p>{{ sleep.note || "No note for this day yet." }}</p>
+          <form class="form" @submit.prevent="saveSleep">
+            <div class="form__row">
+              <input
+                v-model="sleepForm.hours"
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="Hours slept"
+                required
+              />
+              <select v-model="sleepForm.quality" required>
+                <option value="" disabled>Select quality</option>
+                <option>Restorative</option>
+                <option>Good</option>
+                <option>Fair</option>
+                <option>Poor</option>
+              </select>
+            </div>
+            <div class="form__row">
+              <input
+                v-model="sleepForm.note"
+                type="text"
+                placeholder="Optional note"
+              />
+            </div>
+            <button class="btn btn--secondary" type="submit">Save sleep</button>
+          </form>
+        </article>
+
+        <article class="card water-card">
+          <header>
+            <p class="card__eyebrow">Hydration</p>
+            <h3 v-if="!isWaterLoading">
+              {{ water.consumed }} / {{ water.goal }} oz
+            </h3>
+            <h3 v-else>Loading…</h3>
+          </header>
+          <div class="progress progress--thick">
+            <span :style="{ width: `${waterPercent}%` }"></span>
+          </div>
+          <p class="card__sub">
+            <template v-if="water.goal">
+              {{ Math.max(water.goal - water.consumed, 0) }} oz remaining
+            </template>
+            <template v-else>Set a target to view progress</template>
+          </p>
+          <form class="form" @submit.prevent="saveWater">
+            <div class="form__row">
+              <input
+                v-model="waterForm.consumed"
+                type="number"
+                min="0"
+                placeholder="Consumed (oz)"
+                required
+              />
+              <input
+                v-model="waterForm.goal"
+                type="number"
+                min="0"
+                placeholder="Goal (oz)"
+                required
+              />
+            </div>
+            <button class="btn btn--secondary" type="submit">
+              Save hydration
+            </button>
+          </form>
+        </article>
+
+        <article class="card ai-card">
+          <header>
+            <p class="card__eyebrow">AI copilot</p>
+            <h3>Need inspiration?</h3>
+          </header>
+          <p>
+            Meals, hydration cues, and activity pairings come together via AI
+            suggestions.
+          </p>
+          <NuxtLink class="btn btn--blue-coral btn--stack" to="/suggestions">
+            Open suggestions page
+          </NuxtLink>
+        </article>
+      </section>
+
       <section class="split-grid">
         <article class="card meals-card">
           <header>
@@ -557,17 +784,13 @@ useSeoMeta({
                 required
               />
             </div>
-            <div class="form__row form__row--date-note">
+            <div class="form__row">
               <input
                 v-model="mealForm.location"
                 type="text"
                 placeholder="Dining establishment"
                 required
               />
-              <div class="date-note">
-                <span>Logging date</span>
-                <strong>{{ selectedDate }}</strong>
-              </div>
             </div>
             <div class="form__row">
               <input
@@ -678,10 +901,6 @@ useSeoMeta({
                 placeholder="Calories"
                 required
               />
-              <div class="date-note">
-                <span>Logging date</span>
-                <strong>{{ selectedDate }}</strong>
-              </div>
             </div>
             <div class="form__row form__row--compact">
               <select
