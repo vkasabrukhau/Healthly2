@@ -99,6 +99,38 @@ const baseMacroGoals = computed<
   ];
 });
 
+// Day-specific metrics for the currently selected day (only today's metrics are auto-generated)
+const dayMetrics = ref<Record<string, number> | null>(null);
+
+function metricsToGoals(
+  metrics: Record<string, number> | null
+): Array<{ key: MacroKey; label: string; goal: number; unit: string }> {
+  const m = metrics ?? {};
+  return [
+    {
+      key: "calories",
+      label: "Calories",
+      goal: Number(m?.calories ?? 2200),
+      unit: "kcal",
+    },
+    {
+      key: "protein",
+      label: "Protein",
+      goal: Number(m?.protein ?? 120),
+      unit: "g",
+    },
+    { key: "carbs", label: "Carbs", goal: Number(m?.carbs ?? 260), unit: "g" },
+    { key: "fat", label: "Fat", goal: Number(m?.fat ?? 70), unit: "g" },
+    { key: "sugar", label: "Sugar", goal: Number(m?.sugar ?? 55), unit: "g" },
+    {
+      key: "sodium",
+      label: "Sodium",
+      goal: Number(m?.sodium ?? 2300),
+      unit: "mg",
+    },
+  ];
+}
+
 const macros = computed<MacroEntry[]>(() => {
   const totals = meals.value.reduce(
     (acc, meal) => {
@@ -120,9 +152,14 @@ const macros = computed<MacroEntry[]>(() => {
     } as Record<MacroKey, number>
   );
 
-  return baseMacroGoals.value.map((goal) => ({
+  // If the user has day-specific metrics for today, prefer them for the dashboard
+  const useDay = isToday.value && dayMetrics.value;
+  const activeGoals = useDay
+    ? metricsToGoals(dayMetrics.value)
+    : baseMacroGoals.value;
+  return activeGoals.map((goal) => ({
     ...goal,
-    consumed: Number(totals[goal.key].toFixed(1)),
+    consumed: Number(totals[goal.key as MacroKey].toFixed(1)),
   }));
 });
 
@@ -469,6 +506,12 @@ const fetchActivitiesForDay = async () => {
       plannedAt: item.plannedAt,
       completedAt: item.completedAt,
     }));
+    // After loading activities, attempt to generate day-specific metrics if appropriate
+    try {
+      await generateDayMetricsIfNeeded();
+    } catch (e) {
+      if (process.dev) console.error("generateDayMetricsIfNeeded error", e);
+    }
   } catch (error) {
     if (process.dev) console.error("Failed to load activities", error);
     activities.value = [];
@@ -476,6 +519,35 @@ const fetchActivitiesForDay = async () => {
     isActivitiesLoading.value = false;
   }
 };
+
+async function generateDayMetricsIfNeeded() {
+  // Only operate for today's date and when baseline exists
+  if (!userId.value) return;
+  if (!baseline.value) return;
+  if (!isToday.value) return;
+  if (!activities.value || activities.value.length === 0) return;
+
+  try {
+    if (process.dev)
+      console.info(
+        "[debug] generating day metrics due to activities",
+        activities.value.length
+      );
+    const res: any = await $fetch("/api/openrouter/generate-day-metrics", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        date: selectedDate.value,
+        activities: activities.value,
+      },
+    });
+    if (res?.ok && res.metrics) {
+      dayMetrics.value = res.metrics;
+    }
+  } catch (err) {
+    if (process.dev) console.error("Failed to generate day metrics", err);
+  }
+}
 
 // Sleep & water loaders (defined here so they're available to the watchers below)
 const isSleepLoading = ref(false);
@@ -543,6 +615,30 @@ async function fetchUserProfile() {
       baseline.value = profile.baselineMetrics;
     } else {
       baseline.value = null;
+    }
+
+    // Initialize dayMetrics: prefer saved dayMetrics for the selected date, otherwise fall back to baseline.
+    if (profile?.dayMetrics && profile.dayMetrics.date === selectedDate.value) {
+      dayMetrics.value = profile.dayMetrics.metrics;
+    } else {
+      // default day metrics to baseline if available
+      dayMetrics.value = baseline.value;
+      // Persist dayMetrics for today if the server doesn't already have one so we store per-day adjustments
+      if (baseline.value) {
+        try {
+          await $fetch("/api/openrouter/save-day-metrics", {
+            method: "POST",
+            body: {
+              userId: userId.value,
+              date: selectedDate.value,
+              metrics: baseline.value,
+            },
+          });
+        } catch (e) {
+          if (process.dev)
+            console.error("Failed to persist initial dayMetrics", e);
+        }
+      }
     }
 
     // If the user has a persistent waterGoal and today's entry has no goal, use it as fallback

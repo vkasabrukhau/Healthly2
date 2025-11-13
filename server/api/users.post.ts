@@ -128,6 +128,25 @@ export default defineEventHandler(async (event) => {
           { userId },
           { $set: { baselineMetrics: baseline, updatedAt: new Date() } }
         );
+        // Also initialize today's dayMetrics to the baseline so the dashboard
+        // has a per-day override stored. This keeps `baselineMetrics` stable
+        // while allowing day-specific adjustments to be stored under the user.
+        try {
+          const dayKey = new Date().toISOString().slice(0, 10);
+          await collection.updateOne(
+            { userId },
+            {
+              $setOnInsert: { createdAt: now },
+              $set: {
+                dayMetrics: { date: dayKey, metrics: baseline },
+                updatedAt: new Date(),
+              },
+            },
+            { upsert: true }
+          );
+        } catch (e) {
+          if (process.dev) console.error("Failed to seed dayMetrics", e);
+        }
       }
     } catch (e) {
       if (process.dev) console.warn("Baseline metric generation failed:", e);

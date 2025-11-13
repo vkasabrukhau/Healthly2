@@ -215,3 +215,165 @@ export async function generateMacroGoalsForOnboarding(payload: {
 }
 
 export type { MacroGoals };
+
+// Generate day-specific metrics based on baseline and today's planned activities
+export async function generateDayMetricsForActivities(payload: {
+  userId: string;
+  body: {
+    weight?: number | null;
+    heightCm?: number | null;
+    age?: number | null;
+    exerciseLevel?: string | null;
+    waterGoal?: number | null;
+    mealPlanMode?: string | null;
+    baseline?: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      sugar: number;
+      sodium: number;
+    } | null;
+    activities?: Array<any>;
+  };
+}): Promise<MacroGoals | null> {
+  const config = useRuntimeConfig();
+  const key = config.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY;
+  const model =
+    config.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL || "gpt-4o-mini";
+  if (!key) return null;
+
+  const { body } = payload;
+  const userInfo = {
+    weight: body.weight ?? null,
+    heightCm: body.heightCm ?? null,
+    age: body.age ?? null,
+    exerciseLevel: body.exerciseLevel ?? null,
+    waterGoal: body.waterGoal ?? null,
+    mealPlanMode: body.mealPlanMode ?? null,
+    baseline: body.baseline ?? null,
+    activities: body.activities ?? [],
+  };
+
+  const systemPrompt = `You are a nutritionist giving advisory to a person on how much of what they should be eating. You will be given the following info about the user to help make your suggestions: Body Weight, Height, Age, General Exercise Level, Goal Water Consumption, Water Consumed, Meal Plan Mode, baseline suggestions for: Calories, Protein, Carbs, Fat, Sugar, and Sodium. You will also be given the planned physical activities the user has input into the program. All of this will be structured in a json block. Based on this outline, provide updated suggestions for Calories, Protein, Carbs, Fat, Sugar, and Sodium. Return only a single JSON object with numeric values for these keys.`;
+
+  const userContent = `User info: ${JSON.stringify(
+    userInfo
+  )}\nRespond with a single JSON object only.`;
+
+  try {
+    if (process.dev) {
+      try {
+        const infoForLog: any = {
+          model,
+          userInfo: {
+            weight: userInfo.weight,
+            heightCm: userInfo.heightCm,
+            age: userInfo.age,
+            exerciseLevel: userInfo.exerciseLevel,
+            mealPlanMode: userInfo.mealPlanMode,
+            baseline: userInfo.baseline,
+            activities: Array.isArray(userInfo.activities)
+              ? userInfo.activities.length
+              : 0,
+          },
+        };
+        // eslint-disable-next-line no-console
+        console.info(
+          "[OpenRouter] calling generateDayMetricsForActivities",
+          infoForLog
+        );
+      } catch (e) {}
+    }
+
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: 400,
+        temperature: 0.2,
+      }),
+    });
+
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info(
+        "[OpenRouter] day-metrics response status:",
+        res.status,
+        res.statusText
+      );
+    }
+
+    if (!res.ok) {
+      const bodyText = await res.text();
+      if (process.dev) {
+        // eslint-disable-next-line no-console
+        console.error(
+          "[OpenRouter] returned non-OK for day-metrics",
+          res.status,
+          res.statusText,
+          bodyText
+        );
+      }
+      return null;
+    }
+
+    const data = await res.json();
+    const content =
+      (data?.choices && data.choices[0]?.message?.content) ||
+      data?.choices?.[0]?.text ||
+      null;
+    if (!content) {
+      if (process.dev)
+        console.warn("[OpenRouter] no content in day-metrics response");
+      return null;
+    }
+
+    const text =
+      typeof content === "string" ? content : JSON.stringify(content);
+    const parsed = safeParseJsonMaybe(text);
+    if (!parsed) {
+      if (process.dev)
+        console.warn("[OpenRouter] failed to parse day-metrics JSON", {
+          text: text.slice ? text.slice(0, 1000) : text,
+        });
+      return null;
+    }
+
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[OpenRouter] parsed day-metrics", parsed);
+    }
+
+    // Validate keys
+    const keys = ["calories", "protein", "carbs", "fat", "sugar", "sodium"];
+    const output: any = {};
+    for (const k of keys) {
+      const v = parsed[k];
+      output[k] = typeof v === "number" && !Number.isNaN(v) ? v : null;
+    }
+    if (keys.some((k) => output[k] == null)) {
+      if (process.dev)
+        console.warn("[OpenRouter] day-metrics incomplete", parsed);
+      return null;
+    }
+
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[OpenRouter] final day metrics", output);
+    }
+
+    return output as MacroGoals;
+  } catch (err) {
+    if (process.dev) console.error("OpenRouter day-metrics call failed", err);
+    return null;
+  }
+}
