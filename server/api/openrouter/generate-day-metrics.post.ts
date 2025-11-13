@@ -42,7 +42,9 @@ export default defineEventHandler(async (event) => {
       "../utils/openrouter"
     );
     const baseline = userDoc?.baselineMetrics ?? null;
-    const result = await generateDayMetricsForActivities({
+
+    // Prepare payload for OpenRouter helper and log a concise preview in dev.
+    const payloadForGen = {
       userId,
       body: {
         weight: userDoc?.currentWeight ?? null,
@@ -54,7 +56,36 @@ export default defineEventHandler(async (event) => {
         baseline,
         activities,
       },
-    });
+    };
+
+    if (process.dev) {
+      try {
+        // Log a small preview so developers can see what information the
+        // OpenRouter helper will receive without dumping huge payloads.
+        const activitiesPreview = Array.isArray(activities)
+          ? activities.slice(0, 5).map((a) => ({
+              type: a.type,
+              duration: a.duration,
+              calories: a.calories,
+              status: a.status,
+            }))
+          : [];
+        // eslint-disable-next-line no-console
+        console.info("[OpenRouter] generate-day-metrics payload preview", {
+          userId,
+          date: day,
+          baseline: baseline ? baseline : null,
+          activitiesCount: activities.length,
+          activitiesPreview,
+          // include the structured body so developers can inspect keys
+          bodyKeys: Object.keys(payloadForGen.body),
+        });
+      } catch (e) {
+        // ignore logging errors
+      }
+    }
+
+    const result = await generateDayMetricsForActivities(payloadForGen);
 
     if (!result) {
       return {

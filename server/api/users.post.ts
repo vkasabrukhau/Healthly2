@@ -12,6 +12,7 @@ type UserProfileDoc = {
   photoDataUrl?: string;
   mealPlanMode?: "cut" | "maintain" | "bulk";
   currentWeight?: number;
+  gender?: string;
   baselineMetrics?: {
     calories: number;
     protein: number;
@@ -31,6 +32,8 @@ export default defineEventHandler(async (event) => {
     firstName,
     lastName,
     dob,
+    // optional gender collected at onboarding
+    gender,
     age,
     exerciseLevel,
     exerciseFrequency,
@@ -85,6 +88,7 @@ export default defineEventHandler(async (event) => {
     const setObj: any = {
       firstName: (firstName as string).trim(),
       lastName: (lastName as string).trim(),
+      gender: (gender as string) || undefined,
       dob: (parsedDob as Date).toISOString(),
       age: age as number,
       exerciseLevel,
@@ -113,6 +117,7 @@ export default defineEventHandler(async (event) => {
         body: {
           firstName: (firstName as string) || undefined,
           lastName: (lastName as string) || undefined,
+          gender: (gender as string) || undefined,
           age: age as number,
           dob: (parsedDob as Date).toISOString(),
           exerciseLevel,

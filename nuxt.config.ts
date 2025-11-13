@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     clerkSecretKey: process.env.CLERK_SECRET_KEY,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     // Exposed to the client
     public: {
       clerkPublishableKey: process.env.NUXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

@@ -196,6 +196,10 @@ const isToday = computed(() => selectedDate.value === today);
 const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
 const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
+// When the profile is loaded from the server we assign `mealPlanMode` programmatically.
+// Use this flag to suppress the watch that persists the value (and triggers regeneration)
+// so that loading the existing value from MongoDB doesn't cause an OpenRouter call.
+const suppressMealPlanPersist = ref(false);
 
 const mealForm = reactive({
   time: "",
@@ -506,11 +510,35 @@ const fetchActivitiesForDay = async () => {
       plannedAt: item.plannedAt,
       completedAt: item.completedAt,
     }));
-    // After loading activities, attempt to generate day-specific metrics if appropriate
-    try {
-      await generateDayMetricsIfNeeded();
-    } catch (e) {
-      if (process.dev) console.error("generateDayMetricsIfNeeded error", e);
+    // If there are no activities for today, ensure dayMetrics reflect baseline.
+    // This covers the case where the user navigates to today or activities were
+    // removed elsewhere (not via deleteActivity) and the dashboard must revert
+    // any previous OpenRouter adjustments back to baseline.
+    if (isToday.value && (!activities.value || activities.value.length === 0)) {
+      try {
+        if (baseline.value) {
+          dayMetrics.value = baseline.value;
+          // Persist today's dayMetrics as baseline to clear any prior adjustments
+          await $fetch("/api/openrouter/save-day-metrics", {
+            method: "POST",
+            body: {
+              userId: userId.value,
+              date: selectedDate.value,
+              metrics: baseline.value,
+            },
+          });
+          if (process.dev)
+            console.info(
+              "[debug] reset dayMetrics to baseline because no activities present"
+            );
+        } else {
+          dayMetrics.value = null;
+        }
+      } catch (e) {
+        if (process.dev) console.error("Failed to persist reset dayMetrics", e);
+      }
+      // No activities => skip generation attempt below
+      return;
     }
   } catch (error) {
     if (process.dev) console.error("Failed to load activities", error);
@@ -520,12 +548,33 @@ const fetchActivitiesForDay = async () => {
   }
 };
 
+async function persistDayMetrics(metrics: any) {
+  if (!userId.value || !metrics) return;
+  try {
+    await $fetch("/api/openrouter/save-day-metrics", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        date: selectedDate.value,
+        metrics,
+      },
+    });
+  } catch (e) {
+    if (process.dev) console.error("Failed to persist dayMetrics", e);
+  }
+}
+
 async function generateDayMetricsIfNeeded() {
-  // Only operate for today's date and when baseline exists
+  // Only operates for today's date (exercise logging) when baseline exists.
   if (!userId.value) return;
   if (!baseline.value) return;
   if (!isToday.value) return;
-  if (!activities.value || activities.value.length === 0) return;
+
+  if (!activities.value || activities.value.length === 0) {
+    dayMetrics.value = baseline.value;
+    await persistDayMetrics(baseline.value);
+    return;
+  }
 
   try {
     if (process.dev)
@@ -543,6 +592,7 @@ async function generateDayMetricsIfNeeded() {
     });
     if (res?.ok && res.metrics) {
       dayMetrics.value = res.metrics;
+      await persistDayMetrics(res.metrics);
     }
   } catch (err) {
     if (process.dev) console.error("Failed to generate day metrics", err);
@@ -625,19 +675,7 @@ async function fetchUserProfile() {
       dayMetrics.value = baseline.value;
       // Persist dayMetrics for today if the server doesn't already have one so we store per-day adjustments
       if (baseline.value) {
-        try {
-          await $fetch("/api/openrouter/save-day-metrics", {
-            method: "POST",
-            body: {
-              userId: userId.value,
-              date: selectedDate.value,
-              metrics: baseline.value,
-            },
-          });
-        } catch (e) {
-          if (process.dev)
-            console.error("Failed to persist initial dayMetrics", e);
-        }
+        await persistDayMetrics(baseline.value);
       }
     }
 
@@ -840,6 +878,23 @@ const addActivity = async () => {
         date: activeDate,
         calories: Number(activityForm.calories),
         status: activityForm.status,
+        // Also include the full list of today's activities (including this new one)
+        // so the server or downstream handlers receive the complete context.
+        activitiesToday: [
+          {
+            type: activityForm.type,
+            duration: activityForm.duration,
+            calories: Number(activityForm.calories),
+            status: activityForm.status,
+          },
+          // include existing activities (both Completed and Planned)
+          ...(activities.value || []).map((a) => ({
+            type: a.type,
+            duration: a.duration,
+            calories: a.calories,
+            status: a.status,
+          })),
+        ],
       },
     });
 
@@ -859,6 +914,12 @@ const addActivity = async () => {
     }
 
     await fetchActivitiesForDay();
+    try {
+      await generateDayMetricsIfNeeded();
+    } catch (error) {
+      if (process.dev)
+        console.error("generateDayMetricsIfNeeded error after logging", error);
+    }
   } catch (error) {
     console.error("Failed to persist activity", error);
   }
@@ -969,9 +1030,22 @@ const deleteActivity = async (activity: ActivityEntry) => {
       console.warn("Attempted to delete activity for non-today date, blocked");
     return;
   }
+  // Prevent deletion of completed activities on the client side for a better UX.
+  if (activity.status === "Completed") {
+    if (process.dev)
+      console.warn("Attempted to delete a completed activity, blocked");
+    // Optionally surface a user-friendly message — keep non-intrusive here.
+    return;
+  }
   try {
     await $fetch(`/api/activities/${activity.id}`, { method: "DELETE" as any });
     await fetchActivitiesForDay();
+    try {
+      await generateDayMetricsIfNeeded();
+    } catch (error) {
+      if (process.dev)
+        console.error("generateDayMetricsIfNeeded error after delete", error);
+    }
   } catch (error) {
     console.error("Failed to delete activity", error);
   }
@@ -1033,7 +1107,12 @@ watch(
     try {
       const resp: any = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
       if (resp && resp.profile && resp.profile.mealPlanMode) {
+        // Prevent the mealPlanMode watcher from persisting/regenerating
+        // when we are just loading the existing value from MongoDB.
+        suppressMealPlanPersist.value = true;
         mealPlanMode.value = resp.profile.mealPlanMode;
+        // allow subsequent user-initiated changes to persist
+        suppressMealPlanPersist.value = false;
       }
     } catch (err) {
       if (process.dev) console.warn("Failed to load user profile:", err);
@@ -1046,23 +1125,14 @@ watch(
 watch(
   () => mealPlanMode.value,
   async (mode) => {
+    // If we're intentionally assigning the value from the server, skip persisting.
+    if (suppressMealPlanPersist.value) return;
     if (!userId.value) return;
     try {
       await $fetch("/api/users", {
         method: "POST",
         body: { userId: userId.value, mealPlanMode: mode },
       });
-      // After updating the meal plan mode, regenerate baseline metrics
-      // so the user's goals reflect the new plan. Non-fatal on failure.
-      try {
-        await $fetch("/api/openrouter/regenerate-baseline", {
-          method: "POST",
-          body: { userId: userId.value, reason: "mealPlanChange" },
-        });
-      } catch (e) {
-        if (process.dev)
-          console.warn("Failed to regenerate baseline metrics:", e);
-      }
     } catch (err) {
       if (process.dev) console.warn("Failed to save mealPlanMode:", err);
     }

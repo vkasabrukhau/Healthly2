@@ -18,8 +18,11 @@ type ActivityDoc = {
 const VALID_STATUSES = new Set(["Completed", "Planned"]);
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<Partial<ActivityDoc> & { date?: string }>(event);
-  const { userId, type, duration, date, calories, status } = body;
+  const body = await readBody<
+    Partial<ActivityDoc> & { date?: string; activitiesToday?: any[] }
+  >(event);
+  const { userId, type, duration, date, calories, status, activitiesToday } =
+    body;
 
   if (!userId || !type || !duration || !date || typeof calories !== "number") {
     throw createError({
@@ -71,5 +74,50 @@ export default defineEventHandler(async (event) => {
   };
 
   const result = await collection.insertOne(doc);
+  // If the client provided the full list of today's activities, attempt to
+  // generate updated day-level metrics (server-side atomic) and persist them
+  // so the dashboard reflects the new targets immediately. Only do this for
+  // today's date and when activitiesToday is a non-empty array.
+  try {
+    if (Array.isArray(activitiesToday) && activitiesToday.length > 0) {
+      const { generateDayMetricsForActivities } = await import(
+        "./utils/openrouter"
+      );
+      // Fetch user baseline to provide context for generation
+      const userCol = await getCollection("user");
+      const userDoc: any = await userCol.findOne({ userId });
+      const baseline = userDoc?.baselineMetrics ?? null;
+
+      const generated = await generateDayMetricsForActivities({
+        userId,
+        body: {
+          baseline,
+          activities: activitiesToday,
+        },
+      });
+
+      if (generated) {
+        try {
+          await userCol.updateOne(
+            { userId },
+            {
+              $set: {
+                dayMetrics: { date: dayKey, metrics: generated },
+                updatedAt: new Date(),
+              },
+            },
+            { upsert: true }
+          );
+        } catch (e) {
+          if (process.dev)
+            console.error("Failed to persist generated dayMetrics", e);
+        }
+      }
+    }
+  } catch (e) {
+    if (process.dev)
+      console.error("Error generating day metrics after activity insert", e);
+  }
+
   return { insertedId: result.insertedId };
 });

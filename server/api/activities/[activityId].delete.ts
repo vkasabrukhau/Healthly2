@@ -35,6 +35,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "Forbidden" });
   }
 
+  // Do not allow deletion of activities that are already completed.
+  if (found.status === "Completed") {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Cannot delete a completed activity",
+    });
+  }
+
   const result = await collection.deleteOne({ _id: objectId });
   if (!result.deletedCount) {
     throw createError({
