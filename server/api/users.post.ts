@@ -13,14 +13,6 @@ type UserProfileDoc = {
   mealPlanMode?: "cut" | "maintain" | "bulk";
   currentWeight?: number;
   gender?: string;
-  baselineMetrics?: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-    sugar: number;
-    sodium: number;
-  };
   createdAt: Date;
   updatedAt: Date;
 };

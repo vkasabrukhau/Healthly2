@@ -66,70 +66,19 @@ type ActivityEntry = {
   completedAt?: string;
 };
 
-// Baseline metrics provided by the server (persisted `baselineMetrics` on the user)
-const baseline = ref<Record<string, number> | null>(null);
-
-// Base macro goals derived from baseline when available, otherwise fall back to sane defaults.
-const baseMacroGoals = computed<
-  Array<{ key: MacroKey; label: string; goal: number; unit: string }>
->(() => {
-  const b = baseline.value;
-  return [
-    {
-      key: "calories",
-      label: "Calories",
-      goal: Number(b?.calories ?? 2200),
-      unit: "kcal",
-    },
-    {
-      key: "protein",
-      label: "Protein",
-      goal: Number(b?.protein ?? 120),
-      unit: "g",
-    },
-    { key: "carbs", label: "Carbs", goal: Number(b?.carbs ?? 260), unit: "g" },
-    { key: "fat", label: "Fat", goal: Number(b?.fat ?? 70), unit: "g" },
-    { key: "sugar", label: "Sugar", goal: Number(b?.sugar ?? 55), unit: "g" },
-    {
-      key: "sodium",
-      label: "Sodium",
-      goal: Number(b?.sodium ?? 2300),
-      unit: "mg",
-    },
-  ];
-});
-
-// Day-specific metrics for the currently selected day (only today's metrics are auto-generated)
-const dayMetrics = ref<Record<string, number> | null>(null);
-
-function metricsToGoals(
-  metrics: Record<string, number> | null
-): Array<{ key: MacroKey; label: string; goal: number; unit: string }> {
-  const m = metrics ?? {};
-  return [
-    {
-      key: "calories",
-      label: "Calories",
-      goal: Number(m?.calories ?? 2200),
-      unit: "kcal",
-    },
-    {
-      key: "protein",
-      label: "Protein",
-      goal: Number(m?.protein ?? 120),
-      unit: "g",
-    },
-    { key: "carbs", label: "Carbs", goal: Number(m?.carbs ?? 260), unit: "g" },
-    { key: "fat", label: "Fat", goal: Number(m?.fat ?? 70), unit: "g" },
-    { key: "sugar", label: "Sugar", goal: Number(m?.sugar ?? 55), unit: "g" },
-    {
-      key: "sodium",
-      label: "Sodium",
-      goal: Number(m?.sodium ?? 2300),
-      unit: "mg",
-    },
-  ];
-}
+const DEFAULT_MACRO_GOALS: Array<{
+  key: MacroKey;
+  label: string;
+  goal: number;
+  unit: string;
+}> = [
+  { key: "calories", label: "Calories", goal: 2200, unit: "kcal" },
+  { key: "protein", label: "Protein", goal: 120, unit: "g" },
+  { key: "carbs", label: "Carbs", goal: 260, unit: "g" },
+  { key: "fat", label: "Fat", goal: 70, unit: "g" },
+  { key: "sugar", label: "Sugar", goal: 55, unit: "g" },
+  { key: "sodium", label: "Sodium", goal: 2300, unit: "mg" },
+];
 
 const macros = computed<MacroEntry[]>(() => {
   const totals = meals.value.reduce(
@@ -152,11 +101,7 @@ const macros = computed<MacroEntry[]>(() => {
     } as Record<MacroKey, number>
   );
 
-  // If the user has day-specific metrics for today, prefer them for the dashboard
-  const useDay = isToday.value && dayMetrics.value;
-  const activeGoals = useDay
-    ? metricsToGoals(dayMetrics.value)
-    : baseMacroGoals.value;
+  const activeGoals = DEFAULT_MACRO_GOALS;
   return activeGoals.map((goal) => ({
     ...goal,
     consumed: Number(totals[goal.key as MacroKey].toFixed(1)),
@@ -343,14 +288,12 @@ watch(
   { immediate: true }
 );
 
-// Load the persisted profile (baseline metrics) when we get a userId
+// Load the persisted profile (currently used for water goal defaults) when we get a userId
 watch(
   () => userId.value,
   (uid) => {
     if (uid) {
       fetchUserProfile();
-    } else {
-      baseline.value = null;
     }
   },
   { immediate: true }
@@ -508,11 +451,6 @@ const fetchActivitiesForDay = async () => {
       plannedAt: item.plannedAt,
       completedAt: item.completedAt,
     }));
-    // If there are no activities for today, ensure dayMetrics reflect baseline.
-    if (isToday.value && (!activities.value || activities.value.length === 0)) {
-      dayMetrics.value = baseline.value;
-      return;
-    }
   } catch (error) {
     if (process.dev) console.error("Failed to load activities", error);
     activities.value = [];
@@ -520,9 +458,6 @@ const fetchActivitiesForDay = async () => {
     isActivitiesLoading.value = false;
   }
 };
-
-// Day metrics are loaded from the user profile; without AI adjustments they
-// simply mirror the user's saved baseline targets when available.
 
 // Sleep & water loaders (defined here so they're available to the watchers below)
 const isSleepLoading = ref(false);
@@ -579,27 +514,13 @@ const fetchWaterForDay = async () => {
   }
 };
 
-// Fetch the persistent user profile (contains `baselineMetrics` and user-level waterGoal)
+// Fetch the persistent user profile (used for water goal defaults)
 async function fetchUserProfile() {
   if (!userId.value) return;
   try {
     if (process.dev) console.info("[debug] fetchUserProfile ->", userId.value);
     const resp: any = await $fetch(`/api/users/${userId.value}`);
     const profile = resp?.profile ?? null;
-    if (profile?.baselineMetrics) {
-      baseline.value = profile.baselineMetrics;
-    } else {
-      baseline.value = null;
-    }
-
-    // Initialize dayMetrics: prefer saved dayMetrics for the selected date, otherwise fall back to baseline.
-    if (profile?.dayMetrics && profile.dayMetrics.date === selectedDate.value) {
-      dayMetrics.value = profile.dayMetrics.metrics;
-    } else {
-      // default day metrics to baseline if available
-      dayMetrics.value = baseline.value;
-    }
-
     // If the user has a persistent waterGoal and today's entry has no goal, use it as fallback
     if (
       typeof profile?.waterGoal === "number" &&
@@ -610,7 +531,6 @@ async function fetchUserProfile() {
     }
   } catch (err) {
     if (process.dev) console.error("Failed to load user profile", err);
-    baseline.value = null;
   }
 }
 
@@ -1599,7 +1519,7 @@ watch(
                     }}
                   </button>
                   <button
-                    v-if="activity.id && isToday"
+                    v-if="activity.id && isToday && activity.status !== 'Completed'"
                     type="button"
                     class="icon-button"
                     @click="deleteActivity(activity)"
