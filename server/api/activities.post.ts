@@ -1,4 +1,5 @@
 import { getCollection } from "../utils/mongo";
+import { requireAuthenticatedUser } from "./utils/require-auth";
 
 type ActivityDoc = {
   userId: string;
@@ -48,6 +49,10 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Can only create activities for the current day",
     });
   }
+
+  // Ensure the caller is authenticated and can only create activities for
+  // their own account.
+  await requireAuthenticatedUser(event, userId);
 
   const collection = await getCollection<ActivityDoc>("activities");
   const now = new Date();

@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getCollection } from "../../utils/mongo";
+import { requireAuthenticatedUser } from "../utils/require-auth";
 
 export default defineEventHandler(async (event) => {
   const { activityId } = event.context.params as { activityId?: string };
@@ -26,6 +27,12 @@ export default defineEventHandler(async (event) => {
       statusCode: 403,
       statusMessage: "Cannot delete activities from previous days",
     });
+  }
+
+  // Make sure caller is authenticated and owns this activity
+  const authUser = await requireAuthenticatedUser(event);
+  if (String(found.userId) !== String(authUser)) {
+    throw createError({ statusCode: 403, statusMessage: "Forbidden" });
   }
 
   const result = await collection.deleteOne({ _id: objectId });

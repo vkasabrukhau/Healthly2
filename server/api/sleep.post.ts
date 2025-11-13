@@ -1,4 +1,5 @@
 import { getCollection } from "../utils/mongo";
+import { requireAuthenticatedUser } from "./utils/require-auth";
 
 type SleepDoc = {
   userId: string;
@@ -42,6 +43,9 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Can only modify sleep for the current day",
     });
   }
+
+  // Ensure the caller is authenticated and is saving their own sleep entry
+  await requireAuthenticatedUser(event, userId);
 
   const collection = await getCollection<SleepDoc>("sleep");
   const now = new Date();

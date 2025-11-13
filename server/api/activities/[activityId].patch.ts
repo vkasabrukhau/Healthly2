@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getCollection } from "../../utils/mongo";
+import { requireAuthenticatedUser } from "../utils/require-auth";
 
 const VALID_STATUSES = new Set(["Completed", "Planned"]);
 
@@ -48,6 +49,12 @@ export default defineEventHandler(async (event) => {
       statusCode: 403,
       statusMessage: "Cannot modify activities from previous days",
     });
+  }
+
+  // Ensure caller is authenticated and owns the activity before modifying
+  const authUser = await requireAuthenticatedUser(event);
+  if (String(existing.userId) !== String(authUser)) {
+    throw createError({ statusCode: 403, statusMessage: "Forbidden" });
   }
 
   // Build a compound update so we can set updatedAt and conditionally set/unset completedAt

@@ -1,4 +1,5 @@
 import { getCollection } from "../../utils/mongo";
+import { requireAuthenticatedUser } from "../utils/require-auth";
 
 type WaterDoc = {
   userId: string;
@@ -12,6 +13,9 @@ export default defineEventHandler(async (event) => {
   if (!userId) {
     throw createError({ statusCode: 400, statusMessage: "Missing userId" });
   }
+
+  // Ensure the caller is authenticated and requesting their own hydration
+  await requireAuthenticatedUser(event, userId);
 
   const query = getQuery(event);
   const dateParam =

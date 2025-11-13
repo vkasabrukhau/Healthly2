@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getCollection } from "../../utils/mongo";
+import { requireAuthenticatedUser } from "../utils/require-auth";
 
 export default defineEventHandler(async (event) => {
   const { foodId } = event.context.params as { foodId?: string };
@@ -15,7 +16,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const collection = await getCollection("foods");
-  // Ensure the meal is for today before allowing deletion
+  // Ensure the meal is for today before allowing deletion and that the
+  // authenticated user owns the meal.
   const found = await collection.findOne({ _id: objectId });
   if (!found) {
     throw createError({ statusCode: 404, statusMessage: "Meal not found" });
@@ -26,6 +28,12 @@ export default defineEventHandler(async (event) => {
       statusCode: 403,
       statusMessage: "Cannot delete meals from previous days",
     });
+  }
+
+  // Make sure caller is authenticated and owns this meal
+  const authUser = await requireAuthenticatedUser(event);
+  if (String(found.userId) !== String(authUser)) {
+    throw createError({ statusCode: 403, statusMessage: "Forbidden" });
   }
 
   const result = await collection.deleteOne({ _id: objectId });

@@ -1,4 +1,5 @@
 import { getCollection } from "../../utils/mongo";
+import { requireAuthenticatedUser } from "../utils/require-auth";
 
 type FoodDoc = {
   userId: string;
@@ -48,6 +49,9 @@ export default defineEventHandler(async (event) => {
     }
     throw createError({ statusCode: 400, statusMessage: "Missing userId" });
   }
+
+  // Ensure caller is authenticated and is requesting their own data
+  await requireAuthenticatedUser(event, userId);
 
   const dateParam =
     (query.date as string) || new Date().toISOString().slice(0, 10);

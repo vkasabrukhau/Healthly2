@@ -1,4 +1,5 @@
 import { getCollection } from "../utils/mongo";
+import { requireAuthenticatedUser } from "./utils/require-auth";
 
 type MacroBreakdown = {
   protein: number;
@@ -51,6 +52,9 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Missing required food fields",
     });
   }
+
+  // Only the authenticated user may create meals for their account
+  await requireAuthenticatedUser(event, userId);
 
   if (typeof calories !== "number" || Number.isNaN(calories)) {
     throw createError({

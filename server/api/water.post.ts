@@ -1,4 +1,5 @@
 import { getCollection } from "../utils/mongo";
+import { requireAuthenticatedUser } from "./utils/require-auth";
 
 type WaterDoc = {
   userId: string;
@@ -40,6 +41,9 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Can only modify hydration for the current day",
     });
   }
+
+  // Ensure the caller is authenticated and is modifying their own hydration
+  await requireAuthenticatedUser(event, userId);
 
   const collection = await getCollection<WaterDoc>("water");
   const now = new Date();

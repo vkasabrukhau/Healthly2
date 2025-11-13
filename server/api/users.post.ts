@@ -1,4 +1,5 @@
 import { getCollection } from "../utils/mongo";
+import { requireAuthenticatedUser } from "./utils/require-auth";
 
 type UserProfileDoc = {
   userId: string;
@@ -49,6 +50,12 @@ export default defineEventHandler(async (event) => {
       });
     }
   }
+
+  // Ensure the caller is authenticated and can only modify their own profile
+  if (!userId) {
+    throw createError({ statusCode: 400, statusMessage: "Missing userId" });
+  }
+  await requireAuthenticatedUser(event, userId);
 
   const collection = await getCollection<UserProfileDoc>("user");
   const now = new Date();

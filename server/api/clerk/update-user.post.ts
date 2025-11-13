@@ -1,4 +1,5 @@
 import { H3Event } from "h3";
+import { requireAuthenticatedUser } from "../utils/require-auth";
 
 export default defineEventHandler(async (event: H3Event) => {
   const body = await readBody<{
@@ -12,6 +13,10 @@ export default defineEventHandler(async (event: H3Event) => {
   if (!userId) {
     throw createError({ statusCode: 400, statusMessage: "Missing userId" });
   }
+
+  // Only allow the authenticated user to request Clerk updates for their
+  // own account.
+  await requireAuthenticatedUser(event, userId);
 
   const clerkKey =
     process.env.CLERK_SECRET_KEY ||
