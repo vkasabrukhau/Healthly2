@@ -32,6 +32,15 @@ export default defineEventHandler(async (event) => {
   }
   const dayKey = parsedDate.toISOString().slice(0, 10);
 
+  // Only allow water entries for the current day
+  const todayKey = new Date().toISOString().slice(0, 10);
+  if (dayKey !== todayKey) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Can only modify hydration for the current day",
+    });
+  }
+
   const collection = await getCollection<WaterDoc>("water");
   const now = new Date();
 

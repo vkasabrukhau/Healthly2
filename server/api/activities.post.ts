@@ -21,11 +21,17 @@ export default defineEventHandler(async (event) => {
   const { userId, type, duration, date, calories, status } = body;
 
   if (!userId || !type || !duration || !date || typeof calories !== "number") {
-    throw createError({ statusCode: 400, statusMessage: "Missing required activity fields" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing required activity fields",
+    });
   }
 
   if (!status || !VALID_STATUSES.has(status)) {
-    throw createError({ statusCode: 400, statusMessage: "Invalid activity status" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid activity status",
+    });
   }
 
   const parsedDate = new Date(date);
@@ -33,6 +39,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Invalid date" });
   }
   const dayKey = parsedDate.toISOString().slice(0, 10);
+
+  // Only allow creating activities for the current day
+  const todayKey = new Date().toISOString().slice(0, 10);
+  if (dayKey !== todayKey) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Can only create activities for the current day",
+    });
+  }
 
   const collection = await getCollection<ActivityDoc>("activities");
   const now = new Date();

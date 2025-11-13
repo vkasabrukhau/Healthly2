@@ -1,6 +1,21 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useHead } from "#imports";
+// Manually register the echarts components this page needs so the
+// VChart component has the renderer, series and components available.
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { ScatterChart } from "echarts/charts";
+import * as echartsComponents from "echarts/components";
+
+// Register a base set of components plus whatever is exported by the
+// components module. This keeps the page working across different
+// echarts package versions where specific named exports may vary.
+use([
+  CanvasRenderer,
+  ScatterChart,
+  ...Object.values(echartsComponents as any),
+] as any);
 
 definePageMeta({
   middleware: [
@@ -35,8 +50,6 @@ const sleepData = ref<number[]>([7.2, 6.8, 7.5, 8.0, 6.9, 7.1, 7.6]);
 const foodCompletion = ref<number[]>([78, 82, 90, 75, 88, 93, 85]);
 const waterCompletion = ref<number[]>([60, 70, 55, 80, 65, 72, 68]);
 
-const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
-
 function setRange(r: "week" | "month") {
   range.value = r;
   const days = r === "week" ? 7 : 30;
@@ -68,63 +81,101 @@ function randomize() {
 // start with week data
 setRange("week");
 
-const weightOption = computed(() => ({
-  xAxis: { type: "category", data: labels.value },
-  yAxis: { type: "value", name: "lb" },
-  series: [
-    {
-      type: "line",
-      data: weightData.value,
-      smooth: true,
-      name: "Weight",
-      areaStyle: {},
-    },
-  ],
-  tooltip: { trigger: "axis" },
-}));
+type DotOptionConfig = {
+  color: string;
+  label: string;
+  unit?: string;
+  max?: number;
+  symbolSize?: number;
+  formatter?: (value: number) => string;
+};
 
-const sleepOption = computed(() => ({
-  xAxis: { type: "category", data: labels.value },
-  yAxis: { type: "value", name: "hrs" },
-  series: [
-    {
-      type: "line",
-      data: sleepData.value,
-      smooth: true,
-      name: "Sleep",
-      areaStyle: {},
-    },
-  ],
-  tooltip: { trigger: "axis" },
-}));
+function buildDotOption(
+  values: number[],
+  { color, label, unit, max, symbolSize = 12, formatter }: DotOptionConfig
+) {
+  const formatValue = (value: number) => {
+    if (formatter) {
+      return formatter(value);
+    }
+    return unit ? `${value}${unit}` : `${value}`;
+  };
 
-const foodOption = computed(() => ({
-  xAxis: { type: "category", data: labels.value },
-  yAxis: { type: "value", max: 100 },
-  series: [
-    {
-      type: "bar",
-      data: foodCompletion.value,
-      name: "Food Goal %",
-      itemStyle: { color: "#ff8367" },
+  return {
+    grid: { left: 45, right: 18, top: 30, bottom: 40 },
+    xAxis: {
+      type: "category",
+      data: labels.value,
+      axisLabel: { color: "rgba(255, 255, 255, 0.7)" },
+      axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+      splitLine: { show: false },
     },
-  ],
-  tooltip: { trigger: "axis", formatter: "{b0}: {c0}%" },
-}));
+    yAxis: {
+      type: "value",
+      name: unit ?? "",
+      max,
+      axisLabel: { color: "rgba(255, 255, 255, 0.7)" },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
+    },
+    tooltip: {
+      trigger: "item",
+      padding: 10,
+      borderColor: "rgba(255, 255, 255, 0.2)",
+      formatter: (params: any) =>
+        `${params.name}<br/>${label}: ${formatValue(params.value as number)}`,
+    },
+    series: [
+      {
+        type: "scatter",
+        data: values,
+        symbol: "circle",
+        symbolSize,
+        itemStyle: {
+          color,
+          shadowBlur: 18,
+          shadowColor: "rgba(0, 0, 0, 0.25)",
+          opacity: 0.95,
+        },
+        emphasis: { scale: 1.15, itemStyle: { opacity: 1 } },
+      },
+    ],
+  };
+}
 
-const waterOption = computed(() => ({
-  xAxis: { type: "category", data: labels.value },
-  yAxis: { type: "value", max: 100 },
-  series: [
-    {
-      type: "bar",
-      data: waterCompletion.value,
-      name: "Drink Goal %",
-      itemStyle: { color: "#4facfe" },
-    },
-  ],
-  tooltip: { trigger: "axis", formatter: "{b0}: {c0}%" },
-}));
+const weightOption = computed(() =>
+  buildDotOption(weightData.value, {
+    color: "#ff9f7f",
+    label: "Body weight",
+    unit: " lb",
+  })
+);
+
+const sleepOption = computed(() =>
+  buildDotOption(sleepData.value, {
+    color: "#91c7ae",
+    label: "Sleep",
+    unit: " hrs",
+  })
+);
+
+const foodOption = computed(() =>
+  buildDotOption(foodCompletion.value, {
+    color: "#ffc656",
+    label: "Goal completion",
+    max: 100,
+    formatter: (value) => `${value}%`,
+  })
+);
+
+const waterOption = computed(() =>
+  buildDotOption(waterCompletion.value, {
+    color: "#4facfe",
+    label: "Hydration",
+    max: 100,
+    formatter: (value) => `${value}%`,
+  })
+);
 
 useHead({ title: "Healthly | Trends" });
 </script>
@@ -137,30 +188,6 @@ useHead({ title: "Healthly | Trends" });
         <p class="card__sub">
           Track recent weight, sleep, and goal completion.
         </p>
-      </div>
-
-      <div class="mealplan-control">
-        <p class="card__eyebrow">Meal plan mode</p>
-        <div class="plan-buttons">
-          <button
-            :class="['btn', { active: mealPlanMode === 'cut' }]"
-            @click="mealPlanMode = 'cut'"
-          >
-            Cut
-          </button>
-          <button
-            :class="['btn', { active: mealPlanMode === 'maintain' }]"
-            @click="mealPlanMode = 'maintain'"
-          >
-            Maintain
-          </button>
-          <button
-            :class="['btn', { active: mealPlanMode === 'bulk' }]"
-            @click="mealPlanMode = 'bulk'"
-          >
-            Bulk
-          </button>
-        </div>
       </div>
     </header>
 
@@ -209,6 +236,13 @@ useHead({ title: "Healthly | Trends" });
 </template>
 
 <style scoped>
+.page {
+  min-height: 100vh;
+  padding: 64px clamp(1.25rem, 5vw, 5rem) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
 .trends-page .intro {
   display: flex;
   justify-content: space-between;
@@ -216,39 +250,24 @@ useHead({ title: "Healthly | Trends" });
   gap: 1rem;
 }
 
-.plan-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.plan-buttons .btn {
-  padding: 0.5rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #f8f7f4;
-}
-
-.plan-buttons .btn.active {
-  background: linear-gradient(120deg, #4facfe, #ff8367);
-  color: white;
-  box-shadow: 0 8px 20px rgba(79, 172, 254, 0.12);
-}
+/* meal plan control styles moved to dashboard page */
 
 .trends-grid {
   margin-top: 1.25rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* Stack charts vertically and make each chart full-width */
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
 }
 
 .trend-chart {
   width: 100%;
-  height: 260px;
+  height: 360px; /* increased height for full-width visuals */
 }
 
 .chart-card {
-  min-height: 360px;
+  width: 100%;
+  min-height: 420px;
 }
 
 @media (max-width: 640px) {

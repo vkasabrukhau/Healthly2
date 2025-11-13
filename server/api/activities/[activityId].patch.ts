@@ -31,6 +31,19 @@ export default defineEventHandler(async (event) => {
   const collection = await getCollection("activities");
   const now = new Date();
 
+  // Fetch the activity and ensure it belongs to today before allowing updates
+  const existing = await collection.findOne({ _id: objectId });
+  if (!existing) {
+    throw createError({ statusCode: 404, statusMessage: "Activity not found" });
+  }
+  const todayKey = new Date().toISOString().slice(0, 10);
+  if (existing.dayKey !== todayKey) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Cannot modify activities from previous days",
+    });
+  }
+
   // Build a compound update so we can set updatedAt and conditionally set/unset completedAt
   const updateOps: any = { $set: { status, updatedAt: now } };
   if (status === "Completed") {

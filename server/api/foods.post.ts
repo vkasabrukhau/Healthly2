@@ -46,18 +46,36 @@ export default defineEventHandler(async (event) => {
   } = body;
 
   if (!userId || !itemName || !diningEstablishment || !dateConsumed) {
-    throw createError({ statusCode: 400, statusMessage: "Missing required food fields" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing required food fields",
+    });
   }
 
   if (typeof calories !== "number" || Number.isNaN(calories)) {
-    throw createError({ statusCode: 400, statusMessage: "Calories must be a number" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Calories must be a number",
+    });
   }
 
   const parsedDate = new Date(dateConsumed);
   if (Number.isNaN(parsedDate.getTime())) {
-    throw createError({ statusCode: 400, statusMessage: "Invalid date consumed" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid date consumed",
+    });
   }
   const dayKey = parsedDate.toISOString().slice(0, 10);
+
+  // Only allow creating meals for the current day
+  const todayKey = new Date().toISOString().slice(0, 10);
+  if (dayKey !== todayKey) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Can only create meals for the current day",
+    });
+  }
 
   const macroPayload: MacroBreakdown = {
     protein: Number(macros?.protein ?? 0),

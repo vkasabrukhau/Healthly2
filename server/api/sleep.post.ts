@@ -22,7 +22,10 @@ export default defineEventHandler(async (event) => {
   const { userId, date, hours, quality, note } = body;
 
   if (!userId || typeof hours !== "number" || !quality) {
-    throw createError({ statusCode: 400, statusMessage: "Missing sleep fields" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing sleep fields",
+    });
   }
 
   const parsedDate = new Date(date || new Date());
@@ -30,6 +33,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Invalid date" });
   }
   const dayKey = parsedDate.toISOString().slice(0, 10);
+
+  // Only allow sleep entries for the current day
+  const todayKey = new Date().toISOString().slice(0, 10);
+  if (dayKey !== todayKey) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Can only modify sleep for the current day",
+    });
+  }
 
   const collection = await getCollection<SleepDoc>("sleep");
   const now = new Date();

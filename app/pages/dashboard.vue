@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch } from "vue";
 import { useUser } from "#imports";
-import { TooltipComponent } from "echarts/components";
+// Ensure echarts runtime pieces are registered so VChart can render on this page
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
 import { GaugeChart } from "echarts/charts";
+import * as echartsComponents from "echarts/components";
+
+// Register renderer, charts and all exported components defensively (cast to any
+// to accommodate variations between echarts package versions).
+use([
+  CanvasRenderer,
+  GaugeChart,
+  ...Object.values(echartsComponents as any),
+] as any);
 
 definePageMeta({
   middleware: [
@@ -121,6 +132,7 @@ const selectedDate = ref(today);
 const isToday = computed(() => selectedDate.value === today);
 const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
+const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
 
 const mealForm = reactive({
   time: "",
@@ -719,6 +731,11 @@ const beginMealDetailsStep = () => {
 
 const deleteMeal = async (meal: MealEntry) => {
   if (!meal.id) return;
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to delete meal for non-today date, blocked");
+    return;
+  }
   try {
     await $fetch(`/api/foods/${meal.id}`, { method: "DELETE" as any });
     await fetchMealsForDay();
@@ -729,6 +746,11 @@ const deleteMeal = async (meal: MealEntry) => {
 
 const deleteActivity = async (activity: ActivityEntry) => {
   if (!activity.id) return;
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to delete activity for non-today date, blocked");
+    return;
+  }
   try {
     await $fetch(`/api/activities/${activity.id}`, { method: "DELETE" as any });
     await fetchActivitiesForDay();
@@ -739,6 +761,11 @@ const deleteActivity = async (activity: ActivityEntry) => {
 
 const toggleActivityStatus = async (activity: ActivityEntry) => {
   if (!activity.id) return;
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to update activity for non-today date, blocked");
+    return;
+  }
   const nextStatus = activity.status === "Completed" ? "Planned" : "Completed";
   try {
     await $fetch(`/api/activities/${activity.id}`, {
@@ -788,9 +815,34 @@ useSeoMeta({
         <div>
           <h1>{{ greeting }}</h1>
         </div>
-        <div class="day-selector">
-          <label for="day-picker">Viewing date</label>
-          <input id="day-picker" type="date" v-model="selectedDate" />
+        <div class="header-controls">
+          <div class="day-selector">
+            <label for="day-picker">Viewing date</label>
+            <input id="day-picker" type="date" v-model="selectedDate" />
+          </div>
+          <div class="mealplan-control">
+            <p class="card__eyebrow">Meal plan mode</p>
+            <div class="plan-buttons">
+              <button
+                :class="['btn', { active: mealPlanMode === 'cut' }]"
+                @click="mealPlanMode = 'cut'"
+              >
+                Cut
+              </button>
+              <button
+                :class="['btn', { active: mealPlanMode === 'maintain' }]"
+                @click="mealPlanMode = 'maintain'"
+              >
+                Maintain
+              </button>
+              <button
+                :class="['btn', { active: mealPlanMode === 'bulk' }]"
+                @click="mealPlanMode = 'bulk'"
+              >
+                Bulk
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -991,6 +1043,9 @@ useSeoMeta({
               No meals logged for {{ selectedDate }}.
             </li>
             <template v-else>
+              <p class="list-placeholder" v-if="!isToday">
+                Editing is disabled for previous dates.
+              </p>
               <li
                 v-for="meal in meals"
                 :key="meal.id || `${meal.time}-${meal.name}-${meal.date}`"
@@ -1014,7 +1069,7 @@ useSeoMeta({
                 <div class="meals-list__stats">
                   <p class="meals-list__calories">{{ meal.calories }} cal</p>
                   <button
-                    v-if="meal.id"
+                    v-if="meal.id && isToday"
                     type="button"
                     class="icon-button"
                     @click="deleteMeal(meal)"
@@ -1227,6 +1282,9 @@ useSeoMeta({
               No workouts logged for {{ selectedDate }}.
             </li>
             <template v-else>
+              <p class="list-placeholder" v-if="!isToday">
+                Editing is disabled for previous dates.
+              </p>
               <li
                 v-for="activity in activities"
                 :key="
@@ -1255,7 +1313,7 @@ useSeoMeta({
                   <button
                     type="button"
                     class="chip-button"
-                    v-if="activity.id"
+                    v-if="activity.id && isToday"
                     @click="toggleActivityStatus(activity)"
                   >
                     {{
@@ -1265,7 +1323,7 @@ useSeoMeta({
                     }}
                   </button>
                   <button
-                    v-if="activity.id"
+                    v-if="activity.id && isToday"
                     type="button"
                     class="icon-button"
                     @click="deleteActivity(activity)"
@@ -1374,6 +1432,39 @@ useSeoMeta({
   flex-direction: column;
   gap: 0.35rem;
   min-width: 220px;
+}
+
+.mealplan-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.plan-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.plan-buttons .btn {
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f8f7f4;
+}
+
+.plan-buttons .btn.active {
+  background: linear-gradient(120deg, #4facfe, #ff8367);
+  color: white;
+  box-shadow: 0 8px 20px rgba(79, 172, 254, 0.12);
 }
 
 .day-selector label {
@@ -1557,9 +1648,11 @@ useSeoMeta({
 }
 
 .macros-card ul {
-  min-height: 140px; /* room for a few macro rows */
-  max-height: 420px;
-  overflow: auto;
+  /* Increase vertical space so macros are visible without scrolling on
+     typical desktop viewports. Allow the list to expand naturally. */
+  min-height: 220px;
+  max-height: none;
+  overflow: visible;
 }
 
 .macro-row {
