@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getCollection } from "~/server/utils/mongo";
+import { getCollection } from "../../utils/mongo";
 
 export default defineEventHandler(async (event) => {
   const { foodId } = event.context.params as { foodId?: string };

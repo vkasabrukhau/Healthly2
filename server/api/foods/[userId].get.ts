@@ -5,7 +5,13 @@ type FoodDoc = {
   itemName: string;
   calories: number;
   diningEstablishment: string;
-  macros: { protein: number; carbs: number; fat: number; sugar?: number; sodium?: number };
+  macros: {
+    protein: number;
+    carbs: number;
+    fat: number;
+    sugar?: number;
+    sodium?: number;
+  };
   dateConsumed: string;
   dayKey: string;
   time?: string;
@@ -14,16 +20,43 @@ type FoodDoc = {
 };
 
 export default defineEventHandler(async (event) => {
-  const { userId } = event.context.params as { userId?: string };
+  // Defensive param handling: Nitro may resolve the dynamic segment using a
+  // different name (for example another file in the same folder uses
+  // `[foodId]`), so accept either `userId` or `foodId` (or fallback to
+  // query.userId). Also log the incoming context in dev so we can trace
+  // why the client request didn't populate the expected param name.
+  const params = (event.context.params || {}) as Record<string, any>;
+  let userId = params.userId as string | undefined;
+  const foodIdParam = params.foodId as string | undefined;
+  if (!userId && foodIdParam) {
+    userId = foodIdParam;
+  }
+  const query = getQuery(event);
+
+  if (!userId && typeof query.userId === "string") {
+    userId = query.userId;
+  }
+
   if (!userId) {
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.error("[debug] Missing userId in foods GET", {
+        params: event.context.params,
+        query,
+        url: getRequestURL(event),
+      });
+    }
     throw createError({ statusCode: 400, statusMessage: "Missing userId" });
   }
 
-  const query = getQuery(event);
-  const dateParam = (query.date as string) || new Date().toISOString().slice(0, 10);
+  const dateParam =
+    (query.date as string) || new Date().toISOString().slice(0, 10);
   const normalizedDate = new Date(dateParam);
   if (Number.isNaN(normalizedDate.getTime())) {
-    throw createError({ statusCode: 400, statusMessage: "Invalid date parameter" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid date parameter",
+    });
   }
   const dayKey = normalizedDate.toISOString().slice(0, 10);
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch } from "vue";
 import { useUser } from "#imports";
+import { TooltipComponent } from "echarts/components";
+import { GaugeChart } from "echarts/charts";
 
 definePageMeta({
   middleware: [
@@ -212,9 +214,19 @@ const firstName = computed(() => {
   );
 });
 
+// Compute a robust user id from several possible Clerk shapes. Some Clerk
+// payloads use `id`, others `userId` or `sub` depending on server/client/context.
 const userId = computed(() => {
   const u = user.value as any;
-  return u?.id || u?.userId || null;
+  return (
+    u?.id ||
+    u?.userId ||
+    u?.sub ||
+    u?.user_id ||
+    // fallback to `primaryEmailAddress` id if Clerk returns nested shape
+    (u?.primaryEmailAddress && u?.primaryEmailAddress?.id) ||
+    null
+  );
 });
 
 const greeting = ref("Welcome back");
@@ -240,6 +252,19 @@ function updateGreeting() {
 onMounted(() => {
   updateGreeting();
 });
+// Debugging: log user payload changes so we can see which property holds the id
+watch(
+  () => user.value,
+  (val) => {
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[debug] useUser payload:", val);
+      // eslint-disable-next-line no-console
+      console.info("[debug] computed userId:", userId.value);
+    }
+  },
+  { immediate: true }
+);
 watch(
   () => user.value,
   () => {
@@ -309,12 +334,26 @@ const fetchMealsForDay = async () => {
   if (!userId.value || !selectedDate.value) return;
   isMealsLoading.value = true;
   try {
-    const response = await $fetch(`/api/foods/${userId.value}`, {
+    const url = `/api/foods/${userId.value}`;
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[debug] fetchMealsForDay ->", {
+        url,
+        date: selectedDate.value,
+        userId: userId.value,
+      });
+    }
+    const response = await $fetch(url, {
       params: { date: selectedDate.value },
     });
     const items = Array.isArray((response as any)?.items)
       ? (response as any).items
       : [];
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[debug] fetchMealsForDay response items", items.length);
+    }
+
     meals.value = items.map((item: any) => ({
       id: item.id || item._id?.toString?.(),
       time: item.time || "--:--",
@@ -346,12 +385,28 @@ const fetchActivitiesForDay = async () => {
   if (!userId.value || !selectedDate.value) return;
   isActivitiesLoading.value = true;
   try {
-    const response = await $fetch(`/api/activities/${userId.value}`, {
+    const url = `/api/activities/${userId.value}`;
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[debug] fetchActivitiesForDay ->", {
+        url,
+        date: selectedDate.value,
+        userId: userId.value,
+      });
+    }
+    const response = await $fetch(url, {
       params: { date: selectedDate.value },
     });
     const items = Array.isArray((response as any)?.items)
       ? (response as any).items
       : [];
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info(
+        "[debug] fetchActivitiesForDay response items",
+        items.length
+      );
+    }
     activities.value = items.map((item: any) => ({
       id: item.id || item._id?.toString?.(),
       type: item.type || "Activity",
@@ -442,6 +497,10 @@ watch(
 watch(
   () => [userId.value, selectedDate.value],
   ([uid, day]) => {
+    if (process.dev) {
+      // eslint-disable-next-line no-console
+      console.info("[debug] watch triggered - uid/day", uid, day);
+    }
     if (uid && day) {
       fetchMealsForDay();
       fetchActivitiesForDay();
@@ -514,7 +573,7 @@ const addMeal = async () => {
   }
 
   try {
-    await $fetch("/api/foods", {
+    const res: any = await $fetch("/api/foods", {
       method: "POST",
       body: {
         userId: userId.value,
@@ -528,6 +587,16 @@ const addMeal = async () => {
         mealClass: entry.mealClass,
       },
     });
+
+    // Optimistically add the new meal to the UI so the list updates immediately.
+    try {
+      (entry as any).id = res?.insertedId?.toString?.() ?? res?.insertedId;
+      meals.value = [entry, ...meals.value];
+    } catch (e) {
+      // ignore optimistic update errors
+    }
+
+    // Refresh the canonical list from the server to ensure ordering and fields
     await fetchMealsForDay();
   } catch (error) {
     console.error("Failed to persist food entry", error);
@@ -554,7 +623,7 @@ const addActivity = async () => {
   }
 
   try {
-    await $fetch("/api/activities", {
+    const res: any = await $fetch("/api/activities", {
       method: "POST",
       body: {
         userId: userId.value,
@@ -565,6 +634,22 @@ const addActivity = async () => {
         status: activityForm.status,
       },
     });
+
+    // Optimistically show the new activity in the UI
+    try {
+      const newActivity: ActivityEntry = {
+        id: res?.insertedId?.toString?.() ?? res?.insertedId,
+        type: activityForm.type,
+        duration: activityForm.duration,
+        date: activeDate,
+        calories: Number(activityForm.calories),
+        status: activityForm.status,
+      };
+      activities.value = [newActivity, ...activities.value];
+    } catch (e) {
+      // ignore optimistic update errors
+    }
+
     await fetchActivitiesForDay();
   } catch (error) {
     console.error("Failed to persist activity", error);

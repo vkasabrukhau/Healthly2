@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { TooltipComponent } from "echarts/components";
 
 const heroRef = ref<HTMLElement | null>(null);
 const accentPosition = ref({ x: 50, y: 50 });

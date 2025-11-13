@@ -1,95 +1,100 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
-const { isLoaded, isSignedIn, user } = useUser()
+const { isLoaded, isSignedIn, user } = useUser();
 
 const fullName = computed(() => {
   if (!user.value) {
-    return ''
+    return "";
   }
-  const { firstName, lastName, username } = user.value
+  const { firstName, lastName, username } = user.value;
   if (firstName || lastName) {
-    return [firstName, lastName].filter(Boolean).join(' ')
+    return [firstName, lastName].filter(Boolean).join(" ");
   }
-  return username ?? ''
-})
+  return username ?? "";
+});
 
 const age = computed(() => {
-  const birthday = user.value?.birthday
+  const birthday = (user.value as any)?.birthday;
   if (!birthday) {
-    return null
+    return null;
   }
 
-  let birthDate: Date | null = null
+  let birthDate: Date | null = null;
 
   if (birthday instanceof Date) {
-    birthDate = birthday
-  } else if (typeof birthday === 'string') {
-    birthDate = new Date(birthday)
+    birthDate = birthday;
+  } else if (typeof birthday === "string") {
+    birthDate = new Date(birthday);
   } else if (
-    typeof birthday === 'object' &&
+    typeof birthday === "object" &&
     birthday !== null &&
-    'year' in birthday &&
-    'month' in birthday &&
-    'day' in birthday
+    "year" in birthday &&
+    "month" in birthday &&
+    "day" in birthday
   ) {
-    const { year, month, day } = birthday as { year?: number; month?: number; day?: number }
+    const { year, month, day } = birthday as {
+      year?: number;
+      month?: number;
+      day?: number;
+    };
     if (year && month && day) {
-      birthDate = new Date(year, month - 1, day)
+      birthDate = new Date(year, month - 1, day);
     }
   }
 
   if (!birthDate || Number.isNaN(birthDate.getTime())) {
-    return null
+    return null;
   }
 
-  const today = new Date()
-  let computedAge = today.getFullYear() - birthDate.getFullYear()
-  const monthDiff = today.getMonth() - birthDate.getMonth()
-  const dayDiff = today.getDate() - birthDate.getDate()
+  const today = new Date();
+  let computedAge = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
 
   if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-    computedAge--
+    computedAge--;
   }
 
-  return `${computedAge} years`
-})
+  return `${computedAge} years`;
+});
 
 const memberDuration = computed(() => {
-  const createdAt = user.value?.createdAt
+  const createdAt = user.value?.createdAt;
   if (!createdAt) {
-    return null
+    return null;
   }
 
-  const createdDate = new Date(createdAt)
+  const createdDate = new Date(createdAt);
   if (Number.isNaN(createdDate.getTime())) {
-    return null
+    return null;
   }
 
-  const now = new Date()
+  const now = new Date();
   const monthsDiff =
-    (now.getFullYear() - createdDate.getFullYear()) * 12 + (now.getMonth() - createdDate.getMonth())
-  const years = Math.floor(monthsDiff / 12)
-  const months = monthsDiff % 12
+    (now.getFullYear() - createdDate.getFullYear()) * 12 +
+    (now.getMonth() - createdDate.getMonth());
+  const years = Math.floor(monthsDiff / 12);
+  const months = monthsDiff % 12;
 
-  const parts = []
+  const parts = [];
   if (years > 0) {
-    parts.push(`${years} yr${years > 1 ? 's' : ''}`)
+    parts.push(`${years} yr${years > 1 ? "s" : ""}`);
   }
   if (months > 0) {
-    parts.push(`${months} mo${months > 1 ? 's' : ''}`)
+    parts.push(`${months} mo${months > 1 ? "s" : ""}`);
   }
 
   const formattedDate = createdDate.toLocaleDateString(undefined, {
-    month: 'short',
-    year: 'numeric'
-  })
+    month: "short",
+    year: "numeric",
+  });
 
   return {
-    label: parts.length > 0 ? parts.join(' · ') : 'Less than a month',
-    joined: formattedDate
-  }
-})
+    label: parts.length > 0 ? parts.join(" · ") : "Less than a month",
+    joined: formattedDate,
+  };
+});
 </script>
 
 <template>
@@ -103,11 +108,10 @@ const memberDuration = computed(() => {
     <div v-else-if="!isSignedIn" class="card empty-state">
       <h1>Sign in to view your account</h1>
       <p>
-        This page shows your Clerk profile photo and membership details. Please sign in to continue.
+        This page shows your Clerk profile photo and membership details. Please
+        sign in to continue.
       </p>
-      <NuxtLink class="btn" to="/sign-in">
-        Go to Clerk sign in
-      </NuxtLink>
+      <NuxtLink class="btn" to="/sign-in"> Go to Clerk sign in </NuxtLink>
     </div>
 
     <section v-else class="card profile">
@@ -121,7 +125,7 @@ const memberDuration = computed(() => {
       <div class="profile__details">
         <div>
           <p class="eyebrow">Account</p>
-          <h1>{{ fullName || 'Unnamed member' }}</h1>
+          <h1>{{ fullName || "Unnamed member" }}</h1>
           <p class="email">{{ user?.primaryEmailAddress?.emailAddress }}</p>
         </div>
         <dl class="info-grid">
@@ -144,7 +148,8 @@ const memberDuration = computed(() => {
 
 <style scoped>
 :global(body) {
-  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   margin: 0;
   background: #05070a;
   color: #f6f3ee;
@@ -269,7 +274,12 @@ const memberDuration = computed(() => {
 
 .skeleton {
   border-radius: 16px;
-  background: linear-gradient(110deg, rgba(255, 255, 255, 0.08) 35%, rgba(255, 255, 255, 0.04) 50%, rgba(255, 255, 255, 0.08) 65%);
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0.08) 65%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
 }

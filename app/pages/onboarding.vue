@@ -43,7 +43,7 @@ const onboardingCookie = useCookie("healthly-onboarded", {
 
 const clerkUserId = computed(() => {
   const u = user.value as any;
-  return u?.id || u?.userId || null;
+  return u?.id || u?.userId || u?.sub || u?.user_id || null;
 });
 
 const maintenanceOptions = [
