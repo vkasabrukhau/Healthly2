@@ -66,19 +66,38 @@ type ActivityEntry = {
   completedAt?: string;
 };
 
-const macroGoals: Array<{
-  key: MacroKey;
-  label: string;
-  goal: number;
-  unit: string;
-}> = [
-  { key: "calories", label: "Calories", goal: 2200, unit: "kcal" },
-  { key: "protein", label: "Protein", goal: 120, unit: "g" },
-  { key: "carbs", label: "Carbs", goal: 260, unit: "g" },
-  { key: "fat", label: "Fat", goal: 70, unit: "g" },
-  { key: "sugar", label: "Sugar", goal: 55, unit: "g" },
-  { key: "sodium", label: "Sodium", goal: 2300, unit: "mg" },
-];
+// Baseline metrics provided by the server (persisted `baselineMetrics` on the user)
+const baseline = ref<Record<string, number> | null>(null);
+
+// Base macro goals derived from baseline when available, otherwise fall back to sane defaults.
+const baseMacroGoals = computed<
+  Array<{ key: MacroKey; label: string; goal: number; unit: string }>
+>(() => {
+  const b = baseline.value;
+  return [
+    {
+      key: "calories",
+      label: "Calories",
+      goal: Number(b?.calories ?? 2200),
+      unit: "kcal",
+    },
+    {
+      key: "protein",
+      label: "Protein",
+      goal: Number(b?.protein ?? 120),
+      unit: "g",
+    },
+    { key: "carbs", label: "Carbs", goal: Number(b?.carbs ?? 260), unit: "g" },
+    { key: "fat", label: "Fat", goal: Number(b?.fat ?? 70), unit: "g" },
+    { key: "sugar", label: "Sugar", goal: Number(b?.sugar ?? 55), unit: "g" },
+    {
+      key: "sodium",
+      label: "Sodium",
+      goal: Number(b?.sodium ?? 2300),
+      unit: "mg",
+    },
+  ];
+});
 
 const macros = computed<MacroEntry[]>(() => {
   const totals = meals.value.reduce(
@@ -101,7 +120,7 @@ const macros = computed<MacroEntry[]>(() => {
     } as Record<MacroKey, number>
   );
 
-  return macroGoals.map((goal) => ({
+  return baseMacroGoals.value.map((goal) => ({
     ...goal,
     consumed: Number(totals[goal.key].toFixed(1)),
   }));
@@ -280,6 +299,19 @@ watch(
       console.info("[debug] useUser payload:", val);
       // eslint-disable-next-line no-console
       console.info("[debug] computed userId:", userId.value);
+    }
+  },
+  { immediate: true }
+);
+
+// Load the persisted profile (baseline metrics) when we get a userId
+watch(
+  () => userId.value,
+  (uid) => {
+    if (uid) {
+      fetchUserProfile();
+    } else {
+      baseline.value = null;
     }
   },
   { immediate: true }
@@ -499,6 +531,33 @@ const fetchWaterForDay = async () => {
     isWaterLoading.value = false;
   }
 };
+
+// Fetch the persistent user profile (contains `baselineMetrics` and user-level waterGoal)
+async function fetchUserProfile() {
+  if (!userId.value) return;
+  try {
+    if (process.dev) console.info("[debug] fetchUserProfile ->", userId.value);
+    const resp: any = await $fetch(`/api/users/${userId.value}`);
+    const profile = resp?.profile ?? null;
+    if (profile?.baselineMetrics) {
+      baseline.value = profile.baselineMetrics;
+    } else {
+      baseline.value = null;
+    }
+
+    // If the user has a persistent waterGoal and today's entry has no goal, use it as fallback
+    if (
+      typeof profile?.waterGoal === "number" &&
+      (!water.goal || water.goal === 0)
+    ) {
+      water.goal = Number(profile.waterGoal);
+      waterForm.goal = water.goal ? String(water.goal) : "";
+    }
+  } catch (err) {
+    if (process.dev) console.error("Failed to load user profile", err);
+    baseline.value = null;
+  }
+}
 
 // Load weight for selected day and previous day (for delta comparison)
 
