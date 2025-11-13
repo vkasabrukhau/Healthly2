@@ -156,8 +156,11 @@ const memberDuration = computed(() => {
 }
 
 .page {
-  min-height: 100vh;
-  padding: 72px clamp(1.5rem, 6vw, 6rem) 120px;
+  /* Make the page a full-viewport flex container and center the card
+     both horizontally and vertically. Use horizontal padding only so the
+     card itself controls vertical spacing via its internal padding. */
+  height: 100vh;
+  padding: 0 clamp(1.5rem, 6vw, 6rem);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,6 +180,9 @@ const memberDuration = computed(() => {
   grid-template-columns: minmax(220px, 340px) 1fr;
   gap: clamp(2rem, 4vw, 3rem);
   align-items: center;
+  /* center the two-column content so the account tab (details) is visually centered
+     with the avatar, making the 'Account' header appear centered on the page */
+  justify-items: center;
 }
 
 .profile__media {
@@ -191,6 +197,11 @@ const memberDuration = computed(() => {
   object-fit: cover;
   border: 6px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
+}
+
+.profile__details {
+  /* center text under the avatar for a clearer account tab appearance */
+  text-align: center;
 }
 
 .profile__details h1 {

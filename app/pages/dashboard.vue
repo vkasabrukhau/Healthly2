@@ -126,6 +126,13 @@ const waterForm = reactive({
   goal: "",
 });
 
+const weight = reactive({
+  today: null as number | null,
+  yesterday: null as number | null,
+});
+const weightForm = reactive({ weight: "" });
+const isWeightLoading = ref(false);
+
 const today = new Date().toISOString().slice(0, 10);
 const selectedDate = ref(today);
 // Only allow submissions for today's date
@@ -493,6 +500,8 @@ const fetchWaterForDay = async () => {
   }
 };
 
+// Load weight for selected day and previous day (for delta comparison)
+
 watch(
   () => selectedDate.value,
   (val) => {
@@ -519,6 +528,7 @@ watch(
       fetchActivitiesForDay();
       fetchSleepForDay();
       fetchWaterForDay();
+      fetchWeightForDay();
     } else {
       meals.value = [];
       activities.value = [];
@@ -532,10 +542,40 @@ watch(
       water.goal = 0;
       waterForm.consumed = "";
       waterForm.goal = "";
+      weight.today = null;
+      weight.yesterday = null;
+      weightForm.weight = "";
     }
   },
   { immediate: true }
 );
+
+async function fetchWeightForDay() {
+  if (!userId.value || !selectedDate.value) return;
+  isWeightLoading.value = true;
+  try {
+    const response = await $fetch(`/api/weight/${userId.value}`, {
+      params: { date: selectedDate.value },
+    });
+    const today = (response as any)?.today;
+    const previous = (response as any)?.previous;
+    // API returns today's weight as the user's currentWeight (preferred)
+    if (typeof today === "number") {
+      weight.today = Number(today);
+    } else if ((response as any)?.entry) {
+      // fallback to historical entry if currentWeight is not set
+      weight.today = Number((response as any).entry.weight);
+    } else {
+      weight.today = null;
+    }
+    weight.yesterday = previous ? Number(previous.weight) : null;
+    weightForm.weight = weight.today != null ? String(weight.today) : "";
+  } catch (error) {
+    if (process.dev) console.error("Failed to load weight", error);
+  } finally {
+    isWeightLoading.value = false;
+  }
+}
 
 const addMeal = async () => {
   if (mealFormStage.value !== "details" || !mealFormSource.value) {
@@ -722,6 +762,28 @@ const saveWater = async () => {
     await fetchWaterForDay();
   } catch (error) {
     console.error("Failed to save water", error);
+  }
+};
+
+const saveWeight = async () => {
+  if (!userId.value || !weightForm.weight) return;
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to save weight for non-today date, blocked");
+    return;
+  }
+  try {
+    await $fetch("/api/weight", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        date: selectedDate.value,
+        weight: Number(weightForm.weight),
+      },
+    });
+    await fetchWeightForDay();
+  } catch (error) {
+    console.error("Failed to save weight", error);
   }
 };
 
@@ -1033,6 +1095,67 @@ watch(
               :disabled="!isToday"
             >
               Save hydration
+            </button>
+          </form>
+        </article>
+
+        <article class="card weight-card">
+          <header>
+            <p class="card__eyebrow">Weight</p>
+            <h3 v-if="!isWeightLoading">
+              <span class="weight-value">{{ weight.today ?? "—" }}</span>
+              <span class="weight-unit">lbs</span>
+            </h3>
+            <h3 v-else>Loading…</h3>
+          </header>
+          <p class="card__sub">
+            <template v-if="weight.yesterday != null && weight.today != null">
+              <span
+                :class="{
+                  'delta-up': weight.today > weight.yesterday,
+                  'delta-down': weight.today < weight.yesterday,
+                }"
+              >
+                {{
+                  weight.today > weight.yesterday
+                    ? "▲"
+                    : weight.today < weight.yesterday
+                    ? "▼"
+                    : "—"
+                }}
+                {{
+                  Math.abs(
+                    (weight.today || 0) - (weight.yesterday || 0)
+                  ).toFixed(1)
+                }}
+                lbs vs yesterday
+              </span>
+            </template>
+            <template v-else-if="weight.yesterday != null">
+              Last recorded: {{ weight.yesterday }} lbs
+            </template>
+            <template v-else> No prior weight recorded </template>
+          </p>
+          <form class="form" @submit.prevent="saveWeight">
+            <div class="form__row">
+              <input
+                v-model="weightForm.weight"
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="Today's weight"
+                required
+              />
+            </div>
+            <p class="list-placeholder" v-if="!isToday">
+              You can only submit weight entries for today's date.
+            </p>
+            <button
+              class="btn btn--secondary"
+              type="submit"
+              :disabled="!isToday"
+            >
+              Save weight
             </button>
           </form>
         </article>
@@ -1767,21 +1890,52 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-top: 0.75rem;
 }
 
+.weight-card .weight-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.weight-card .weight-unit {
+  margin-left: 0.35rem;
+  color: #cfcac2;
+}
+.weight-card .delta-up {
+  color: #9de4c5;
+}
+.weight-card .delta-down {
+  color: #ff9a9a;
+}
+
 .progress--thick {
   height: 12px;
 }
 
 .stats-grid {
   display: grid;
-  /* two equal columns so Sleep and Hydration are side-by-side; AI copilot
-     will span both columns below */
-  grid-template-columns: repeat(2, 1fr);
+  /* three equal columns so Sleep, Hydration and Weight sit in a single row;
+     AI copilot will span the full width below */
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
 }
 
 .ai-card {
   gap: 0.5rem;
   grid-column: 1 / -1; /* span full width under sleep + hydration */
+}
+
+/* Responsive: fall back to 2 columns on medium screens and 1 column on small screens */
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .ai-card {
+    grid-column: auto;
+  }
 }
 
 /* Make sleep hours large and prominent */
@@ -1806,6 +1960,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   flex-direction: column;
 }
 .water-card .form {
+  margin-top: auto;
+}
+
+/* Bottom-justify weight form so input and button sit at the card bottom */
+.weight-card {
+  display: flex;
+  flex-direction: column;
+}
+.weight-card .form {
   margin-top: auto;
 }
 

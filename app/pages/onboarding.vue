@@ -78,7 +78,7 @@ const form = reactive({
   firstName: "",
   lastName: "",
   dob: "",
-  weightKg: "",
+  weightLbs: "",
   heightFeet: "",
   heightInches: "",
   maintenance:
@@ -132,7 +132,7 @@ const isFormComplete = computed(() =>
       form.lastName &&
       form.dob &&
       age.value !== "--" &&
-      form.weightKg &&
+      form.weightLbs &&
       form.heightFeet &&
       form.maintenance &&
       form.exerciseLevel &&
@@ -224,7 +224,8 @@ const handleSubmit = async () => {
         lastName: form.lastName,
         dob: form.dob,
         age: Number(age.value),
-        weightKg: Number(form.weightKg),
+        // onboarding now collects pounds (lbs) as the canonical input
+        weight: Number(form.weightLbs),
         heightCm: heightCm.value ?? null,
         maintenance: form.maintenance,
         exerciseLevel: form.exerciseLevel,
@@ -308,18 +309,18 @@ const handleSubmit = async () => {
               >
             </label>
             <label>
-              <span>Weight (kg)</span>
+              <span>Weight (lbs)</span>
               <input
-                v-model.number="form.weightKg"
+                v-model.number="form.weightLbs"
                 type="number"
-                min="20"
-                max="500"
+                min="40"
+                max="1100"
                 step="0.1"
-                placeholder="e.g. 72.5"
+                placeholder="e.g. 160.0"
                 required
               />
-              <small v-if="attemptedSubmit && !form.weightKg"
-                >Enter your weight in kilograms.</small
+              <small v-if="attemptedSubmit && !form.weightLbs"
+                >Enter your weight in pounds (lbs).</small
               >
             </label>
             <label>
@@ -458,7 +459,7 @@ const handleSubmit = async () => {
           <li>
             <p class="label">Weight</p>
             <p class="value">
-              {{ form.weightKg ? form.weightKg + " kg" : "—" }}
+              {{ form.weightLbs ? form.weightLbs + " lbs" : "—" }}
             </p>
           </li>
           <li>

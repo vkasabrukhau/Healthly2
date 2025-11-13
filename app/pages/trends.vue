@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useHead } from "#imports";
+import { useUser } from "#imports";
 // Manually register the echarts components this page needs so the
 // VChart component has the renderer, series and components available.
 import { use } from "echarts/core";
@@ -43,28 +44,127 @@ function jitter(base: number, variance = 1) {
 }
 
 const labels = ref<string[]>(makeLabels(7));
-const weightData = ref<number[]>([
-  176, 175.2, 175.0, 174.5, 174.8, 174.2, 173.9,
-]);
-const sleepData = ref<number[]>([7.2, 6.8, 7.5, 8.0, 6.9, 7.1, 7.6]);
-const foodCompletion = ref<number[]>([78, 82, 90, 75, 88, 93, 85]);
-const waterCompletion = ref<number[]>([60, 70, 55, 80, 65, 72, 68]);
+const weightData = ref<number[]>([]);
+const sleepData = ref<number[]>([]);
+const foodCompletion = ref<number[]>([]);
+const waterCompletion = ref<number[]>([]);
+
+const { user } = useUser();
+const userId = computed(() => {
+  const u = (user as any).value || {};
+  return u?.id || u?.userId || u?.sub || u?.user_id || null;
+});
 
 function setRange(r: "week" | "month") {
   range.value = r;
   const days = r === "week" ? 7 : 30;
   labels.value = makeLabels(days);
-  const baseWeight = 174.5 + (r === "month" ? 1.5 : 0);
-  weightData.value = Array.from({ length: days }, (_, i) =>
-    jitter(baseWeight - i * 0.02, 0.8)
+  // attempt to fetch real data for the range; fall back to synthetic if unavailable
+  fetchTrendData(days).catch(() => {
+    // on any error, fall back to synthetic data so charts remain populated
+    const baseWeight = 174.5 + (r === "month" ? 1.5 : 0);
+    weightData.value = Array.from({ length: days }, (_, i) =>
+      jitter(baseWeight - i * 0.02, 0.8)
+    );
+    sleepData.value = Array.from({ length: days }, () => jitter(7.2, 1.2));
+    foodCompletion.value = Array.from({ length: days }, () =>
+      Math.max(40, Math.min(100, Math.round(jitter(80, 25))))
+    );
+    waterCompletion.value = Array.from({ length: days }, () =>
+      Math.max(20, Math.min(100, Math.round(jitter(70, 30))))
+    );
+  });
+}
+
+// Fetch actual trend data by querying existing per-day endpoints. This is
+// intentionally conservative (one request per day/per-metric) to avoid
+// modifying server APIs; later we can add a range endpoint to return series
+// in a single request for improved perf.
+async function fetchTrendData(days: number) {
+  const uid = userId.value;
+  if (!uid) throw new Error("no-user");
+
+  // Build the date strings in order
+  const dates = makeLabels(days);
+
+  // For each date, fetch weight, sleep, food and water in parallel
+  const promises = dates.map(async (dateStr) => {
+    try {
+      const [wResp, sResp, fResp, watResp] = await Promise.all([
+        $fetch(`/api/weight/${encodeURIComponent(uid)}`, {
+          params: { date: dateStr },
+        }).catch(() => null),
+        $fetch(`/api/sleep/${encodeURIComponent(uid)}`, {
+          params: { date: dateStr },
+        }).catch(() => null),
+        $fetch(`/api/foods/${encodeURIComponent(uid)}`, {
+          params: { date: dateStr },
+        }).catch(() => null),
+        $fetch(`/api/water/${encodeURIComponent(uid)}`, {
+          params: { date: dateStr },
+        }).catch(() => null),
+      ]);
+
+      const weightVal =
+        wResp && (wResp as any).today != null
+          ? Number((wResp as any).today)
+          : wResp && (wResp as any).entry
+          ? Number((wResp as any).entry.weight)
+          : null;
+
+      const sleepVal =
+        sResp && (sResp as any).entry
+          ? Number((sResp as any).entry.hours || 0)
+          : 0;
+
+      const foods =
+        fResp && Array.isArray((fResp as any).items)
+          ? (fResp as any).items
+          : [];
+      const totalCalories = foods.reduce(
+        (sum: number, it: any) => sum + (Number(it.calories) || 0),
+        0
+      );
+
+      const waterEntry =
+        watResp && (watResp as any).entry ? (watResp as any).entry : null;
+
+      return {
+        date: dateStr,
+        weight: weightVal,
+        sleep: sleepVal,
+        calories: totalCalories,
+        water: waterEntry,
+      };
+    } catch (err) {
+      return {
+        date: dateStr,
+        weight: null,
+        sleep: 0,
+        calories: 0,
+        water: null,
+      };
+    }
+  });
+
+  const results = await Promise.all(promises);
+
+  // Map results into series arrays (maintain same order as labels)
+  weightData.value = results.map((r) => (r.weight != null ? r.weight : NaN));
+  sleepData.value = results.map((r) => Number(r.sleep || 0));
+  // Food completion uses a default daily calorie target (2200) if not available
+  const defaultCalGoal = 2200;
+  foodCompletion.value = results.map((r) =>
+    Math.min(100, Math.round(((r.calories || 0) / defaultCalGoal) * 100))
   );
-  sleepData.value = Array.from({ length: days }, () => jitter(7.2, 1.2));
-  foodCompletion.value = Array.from({ length: days }, () =>
-    Math.max(40, Math.min(100, Math.round(jitter(80, 25))))
-  );
-  waterCompletion.value = Array.from({ length: days }, () =>
-    Math.max(20, Math.min(100, Math.round(jitter(70, 30))))
-  );
+  waterCompletion.value = results.map((r) => {
+    const w = r.water;
+    if (!w || !w.goal) return 0;
+    return Math.min(
+      100,
+      Math.round((Number(w.consumed || 0) / Number(w.goal || 1)) * 100)
+    );
+  });
 }
 
 function randomize() {
@@ -80,6 +180,13 @@ function randomize() {
 
 // start with week data
 setRange("week");
+
+// Re-fetch when user signs in or range changes
+watch([userId, range], ([uid, r]) => {
+  const days = r === "week" ? 7 : 30;
+  if (!uid) return; // keep synthetic until signed in
+  fetchTrendData(days).catch(() => {});
+});
 
 type DotOptionConfig = {
   color: string;
