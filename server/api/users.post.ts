@@ -107,56 +107,6 @@ export default defineEventHandler(async (event) => {
       { upsert: true }
     );
 
-    // Attempt to generate tailored baseline metrics via OpenRouter and persist
-    try {
-      const { generateMacroGoalsForOnboarding } = await import(
-        "./utils/openrouter"
-      );
-      const baseline = await generateMacroGoalsForOnboarding({
-        userId,
-        body: {
-          firstName: (firstName as string) || undefined,
-          lastName: (lastName as string) || undefined,
-          gender: (gender as string) || undefined,
-          age: age as number,
-          dob: (parsedDob as Date).toISOString(),
-          exerciseLevel,
-          exerciseFrequency,
-          mealPlanMode: (body as any).mealPlanMode ?? undefined,
-          heightCm: (body as any).heightCm ?? null,
-          weight: initialWeight ?? null,
-          waterGoal: (body as any).waterGoal ?? null,
-        },
-      });
-      if (baseline) {
-        await collection.updateOne(
-          { userId },
-          { $set: { baselineMetrics: baseline, updatedAt: new Date() } }
-        );
-        // Also initialize today's dayMetrics to the baseline so the dashboard
-        // has a per-day override stored. This keeps `baselineMetrics` stable
-        // while allowing day-specific adjustments to be stored under the user.
-        try {
-          const dayKey = new Date().toISOString().slice(0, 10);
-          await collection.updateOne(
-            { userId },
-            {
-              $setOnInsert: { createdAt: now },
-              $set: {
-                dayMetrics: { date: dayKey, metrics: baseline },
-                updatedAt: new Date(),
-              },
-            },
-            { upsert: true }
-          );
-        } catch (e) {
-          if (process.dev) console.error("Failed to seed dayMetrics", e);
-        }
-      }
-    } catch (e) {
-      if (process.dev) console.warn("Baseline metric generation failed:", e);
-    }
-
     // If an initial weight was provided during onboarding, also insert
     // a historical weight entry for today's dayKey so history is seeded.
     if (typeof initialWeight === "number") {

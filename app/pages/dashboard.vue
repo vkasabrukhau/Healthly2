@@ -197,8 +197,6 @@ const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
 const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
 // When the profile is loaded from the server we assign `mealPlanMode` programmatically.
-// Use this flag to suppress the watch that persists the value (and triggers regeneration)
-// so that loading the existing value from MongoDB doesn't cause an OpenRouter call.
 const suppressMealPlanPersist = ref(false);
 
 const mealForm = reactive({
@@ -511,33 +509,8 @@ const fetchActivitiesForDay = async () => {
       completedAt: item.completedAt,
     }));
     // If there are no activities for today, ensure dayMetrics reflect baseline.
-    // This covers the case where the user navigates to today or activities were
-    // removed elsewhere (not via deleteActivity) and the dashboard must revert
-    // any previous OpenRouter adjustments back to baseline.
     if (isToday.value && (!activities.value || activities.value.length === 0)) {
-      try {
-        if (baseline.value) {
-          dayMetrics.value = baseline.value;
-          // Persist today's dayMetrics as baseline to clear any prior adjustments
-          await $fetch("/api/openrouter/save-day-metrics", {
-            method: "POST",
-            body: {
-              userId: userId.value,
-              date: selectedDate.value,
-              metrics: baseline.value,
-            },
-          });
-          if (process.dev)
-            console.info(
-              "[debug] reset dayMetrics to baseline because no activities present"
-            );
-        } else {
-          dayMetrics.value = null;
-        }
-      } catch (e) {
-        if (process.dev) console.error("Failed to persist reset dayMetrics", e);
-      }
-      // No activities => skip generation attempt below
+      dayMetrics.value = baseline.value;
       return;
     }
   } catch (error) {
@@ -548,56 +521,8 @@ const fetchActivitiesForDay = async () => {
   }
 };
 
-async function persistDayMetrics(metrics: any) {
-  if (!userId.value || !metrics) return;
-  try {
-    await $fetch("/api/openrouter/save-day-metrics", {
-      method: "POST",
-      body: {
-        userId: userId.value,
-        date: selectedDate.value,
-        metrics,
-      },
-    });
-  } catch (e) {
-    if (process.dev) console.error("Failed to persist dayMetrics", e);
-  }
-}
-
-async function generateDayMetricsIfNeeded() {
-  // Only operates for today's date (exercise logging) when baseline exists.
-  if (!userId.value) return;
-  if (!baseline.value) return;
-  if (!isToday.value) return;
-
-  if (!activities.value || activities.value.length === 0) {
-    dayMetrics.value = baseline.value;
-    await persistDayMetrics(baseline.value);
-    return;
-  }
-
-  try {
-    if (process.dev)
-      console.info(
-        "[debug] generating day metrics due to activities",
-        activities.value.length
-      );
-    const res: any = await $fetch("/api/openrouter/generate-day-metrics", {
-      method: "POST",
-      body: {
-        userId: userId.value,
-        date: selectedDate.value,
-        activities: activities.value,
-      },
-    });
-    if (res?.ok && res.metrics) {
-      dayMetrics.value = res.metrics;
-      await persistDayMetrics(res.metrics);
-    }
-  } catch (err) {
-    if (process.dev) console.error("Failed to generate day metrics", err);
-  }
-}
+// Day metrics are loaded from the user profile; without AI adjustments they
+// simply mirror the user's saved baseline targets when available.
 
 // Sleep & water loaders (defined here so they're available to the watchers below)
 const isSleepLoading = ref(false);
@@ -673,10 +598,6 @@ async function fetchUserProfile() {
     } else {
       // default day metrics to baseline if available
       dayMetrics.value = baseline.value;
-      // Persist dayMetrics for today if the server doesn't already have one so we store per-day adjustments
-      if (baseline.value) {
-        await persistDayMetrics(baseline.value);
-      }
     }
 
     // If the user has a persistent waterGoal and today's entry has no goal, use it as fallback
@@ -878,23 +799,6 @@ const addActivity = async () => {
         date: activeDate,
         calories: Number(activityForm.calories),
         status: activityForm.status,
-        // Also include the full list of today's activities (including this new one)
-        // so the server or downstream handlers receive the complete context.
-        activitiesToday: [
-          {
-            type: activityForm.type,
-            duration: activityForm.duration,
-            calories: Number(activityForm.calories),
-            status: activityForm.status,
-          },
-          // include existing activities (both Completed and Planned)
-          ...(activities.value || []).map((a) => ({
-            type: a.type,
-            duration: a.duration,
-            calories: a.calories,
-            status: a.status,
-          })),
-        ],
       },
     });
 
@@ -914,12 +818,6 @@ const addActivity = async () => {
     }
 
     await fetchActivitiesForDay();
-    try {
-      await generateDayMetricsIfNeeded();
-    } catch (error) {
-      if (process.dev)
-        console.error("generateDayMetricsIfNeeded error after logging", error);
-    }
   } catch (error) {
     console.error("Failed to persist activity", error);
   }
@@ -1040,12 +938,6 @@ const deleteActivity = async (activity: ActivityEntry) => {
   try {
     await $fetch(`/api/activities/${activity.id}`, { method: "DELETE" as any });
     await fetchActivitiesForDay();
-    try {
-      await generateDayMetricsIfNeeded();
-    } catch (error) {
-      if (process.dev)
-        console.error("generateDayMetricsIfNeeded error after delete", error);
-    }
   } catch (error) {
     console.error("Failed to delete activity", error);
   }
