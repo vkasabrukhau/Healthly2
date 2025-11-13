@@ -4,6 +4,8 @@ type MacroBreakdown = {
   protein: number;
   carbs: number;
   fat: number;
+  sugar: number;
+  sodium: number;
 };
 
 type FoodDoc = {
@@ -15,6 +17,8 @@ type FoodDoc = {
   dateConsumed: string;
   dayKey: string;
   time?: string;
+  portion?: string;
+  mealClass?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,7 +33,17 @@ export default defineEventHandler(async (event) => {
       time?: string;
     }
   >(event);
-  const { userId, itemName, calories, diningEstablishment, macros, dateConsumed, time } = body;
+  const {
+    userId,
+    itemName,
+    calories,
+    diningEstablishment,
+    macros,
+    dateConsumed,
+    time,
+    portion,
+    mealClass,
+  } = body;
 
   if (!userId || !itemName || !diningEstablishment || !dateConsumed) {
     throw createError({ statusCode: 400, statusMessage: "Missing required food fields" });
@@ -49,6 +63,8 @@ export default defineEventHandler(async (event) => {
     protein: Number(macros?.protein ?? 0),
     carbs: Number(macros?.carbs ?? 0),
     fat: Number(macros?.fat ?? 0),
+    sugar: Number(macros?.sugar ?? 0),
+    sodium: Number(macros?.sodium ?? 0),
   };
 
   const collection = await getCollection<FoodDoc>("foods");
@@ -62,6 +78,8 @@ export default defineEventHandler(async (event) => {
     dateConsumed: parsedDate.toISOString(),
     dayKey,
     time: time?.trim(),
+    portion: portion?.trim(),
+    mealClass: mealClass?.trim(),
     createdAt: now,
     updatedAt: now,
   };

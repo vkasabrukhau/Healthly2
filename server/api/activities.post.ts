@@ -8,6 +8,8 @@ type ActivityDoc = {
   calories: number;
   status: "Completed" | "Planned";
   dayKey: string;
+  plannedAt: Date;
+  completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -42,6 +44,8 @@ export default defineEventHandler(async (event) => {
     dayKey,
     calories,
     status,
+    plannedAt: now,
+    completedAt: status === "Completed" ? now : undefined,
     createdAt: now,
     updatedAt: now,
   };

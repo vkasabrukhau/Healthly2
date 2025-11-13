@@ -10,7 +10,10 @@ definePageMeta({
 });
 
 // Core reactive state (empty/default) — replace/populate from real user data when available
+type MacroKey = "calories" | "protein" | "carbs" | "fat" | "sugar" | "sodium";
+
 type MacroEntry = {
+  key: MacroKey;
   label: string;
   consumed: number;
   goal: number;
@@ -21,36 +24,75 @@ type MacroBreakdown = {
   protein: number;
   carbs: number;
   fat: number;
+  sugar: number;
+  sodium: number;
 };
 
 type MealEntry = {
+  id?: string;
   time: string;
   name: string;
   calories: number;
   location: string;
   date: string;
   macros: MacroBreakdown;
+  portion: string;
+  mealClass: string;
 };
 
 type ActivityStatus = "Completed" | "Planned";
 
 type ActivityEntry = {
+  id?: string;
   type: string;
   duration: string;
   date: string;
   calories: number;
   status: ActivityStatus;
+  plannedAt?: string;
+  completedAt?: string;
 };
 
-// Only track essential macros: calories, protein, carbs, fat, sugar, salt
-const macros = ref<MacroEntry[]>([
-  { label: "Calories", consumed: 0, goal: 0, unit: "kcal" },
-  { label: "Protein", consumed: 0, goal: 0, unit: "g" },
-  { label: "Carbs", consumed: 0, goal: 0, unit: "g" },
-  { label: "Fat", consumed: 0, goal: 0, unit: "g" },
-  { label: "Sugar", consumed: 0, goal: 0, unit: "g" },
-  { label: "Salt", consumed: 0, goal: 0, unit: "mg" },
-]);
+const macroGoals: Array<{
+  key: MacroKey;
+  label: string;
+  goal: number;
+  unit: string;
+}> = [
+  { key: "calories", label: "Calories", goal: 2200, unit: "kcal" },
+  { key: "protein", label: "Protein", goal: 120, unit: "g" },
+  { key: "carbs", label: "Carbs", goal: 260, unit: "g" },
+  { key: "fat", label: "Fat", goal: 70, unit: "g" },
+  { key: "sugar", label: "Sugar", goal: 55, unit: "g" },
+  { key: "sodium", label: "Sodium", goal: 2300, unit: "mg" },
+];
+
+const macros = computed<MacroEntry[]>(() => {
+  const totals = meals.value.reduce(
+    (acc, meal) => {
+      acc.calories += meal.calories || 0;
+      acc.protein += meal.macros?.protein || 0;
+      acc.carbs += meal.macros?.carbs || 0;
+      acc.fat += meal.macros?.fat || 0;
+      acc.sugar += meal.macros?.sugar || 0;
+      acc.sodium += meal.macros?.sodium || 0;
+      return acc;
+    },
+    {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      sugar: 0,
+      sodium: 0,
+    } as Record<MacroKey, number>
+  );
+
+  return macroGoals.map((goal) => ({
+    ...goal,
+    consumed: Number(totals[goal.key].toFixed(1)),
+  }));
+});
 
 const sleep = reactive({
   hours: 0,
@@ -73,6 +115,8 @@ const waterForm = reactive({
 
 const today = new Date().toISOString().slice(0, 10);
 const selectedDate = ref(today);
+// Only allow submissions for today's date
+const isToday = computed(() => selectedDate.value === today);
 const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
 
@@ -81,10 +125,17 @@ const mealForm = reactive({
   name: "",
   calories: "",
   location: "",
+  portion: "",
+  mealClass: "",
   protein: "",
   carbs: "",
   fat: "",
+  sugar: "",
+  sodium: "",
 });
+
+const mealFormStage = ref<"source" | "details">("source");
+const mealFormSource = ref<"duke" | "custom" | null>(null);
 
 const activityForm = reactive({
   type: "",
@@ -265,6 +316,7 @@ const fetchMealsForDay = async () => {
       ? (response as any).items
       : [];
     meals.value = items.map((item: any) => ({
+      id: item.id || item._id?.toString?.(),
       time: item.time || "--:--",
       name: item.itemName || item.name || "Meal",
       calories: Number(item.calories) || 0,
@@ -276,7 +328,11 @@ const fetchMealsForDay = async () => {
         protein: Number(item.macros?.protein ?? 0),
         carbs: Number(item.macros?.carbs ?? 0),
         fat: Number(item.macros?.fat ?? 0),
+        sugar: Number(item.macros?.sugar ?? 0),
+        sodium: Number(item.macros?.sodium ?? 0),
       },
+      portion: item.portion || "",
+      mealClass: item.mealClass || "",
     }));
   } catch (error) {
     if (process.dev) console.error("Failed to load meals", error);
@@ -297,11 +353,14 @@ const fetchActivitiesForDay = async () => {
       ? (response as any).items
       : [];
     activities.value = items.map((item: any) => ({
+      id: item.id || item._id?.toString?.(),
       type: item.type || "Activity",
       duration: item.duration || "",
       date: item.dayKey || normalizeDayString(item.date || selectedDate.value),
       calories: Number(item.calories) || 0,
       status: item.status === "Planned" ? "Planned" : "Completed",
+      plannedAt: item.plannedAt,
+      completedAt: item.completedAt,
     }));
   } catch (error) {
     if (process.dev) console.error("Failed to load activities", error);
@@ -407,11 +466,24 @@ watch(
 );
 
 const addMeal = async () => {
+  if (mealFormStage.value !== "details" || !mealFormSource.value) {
+    return;
+  }
+
+  if (!isToday.value) {
+    // protect client-side: disallow submitting for non-today dates
+    if (process.dev)
+      console.warn("Attempted to add meal for non-today date, blocked");
+    return;
+  }
+
+  const isCustomMeal = mealFormSource.value === "custom";
+
   if (
     !mealForm.time ||
     !mealForm.name ||
-    !mealForm.calories ||
-    !mealForm.location
+    !mealForm.location ||
+    (isCustomMeal && !mealForm.calories)
   ) {
     return;
   }
@@ -422,15 +494,19 @@ const addMeal = async () => {
     protein: Number(mealForm.protein) || 0,
     carbs: Number(mealForm.carbs) || 0,
     fat: Number(mealForm.fat) || 0,
+    sugar: Number(mealForm.sugar) || 0,
+    sodium: Number(mealForm.sodium) || 0,
   };
 
   const entry: MealEntry = {
     time: mealForm.time,
     name: mealForm.name,
-    calories: Number(mealForm.calories),
+    calories: Number(mealForm.calories) || 0,
     location: mealForm.location,
     date: activeDate,
     macros,
+    portion: mealForm.portion,
+    mealClass: mealForm.mealClass,
   };
 
   if (!userId.value) {
@@ -448,6 +524,8 @@ const addMeal = async () => {
         macros: entry.macros,
         dateConsumed: entry.date,
         time: entry.time,
+        portion: entry.portion,
+        mealClass: entry.mealClass,
       },
     });
     await fetchMealsForDay();
@@ -455,17 +533,17 @@ const addMeal = async () => {
     console.error("Failed to persist food entry", error);
   }
 
-  mealForm.time = "";
-  mealForm.name = "";
-  mealForm.calories = "";
-  mealForm.location = "";
-  mealForm.protein = "";
-  mealForm.carbs = "";
-  mealForm.fat = "";
+  resetMealFormFlow();
 };
 
 const addActivity = async () => {
   if (!activityForm.type || !activityForm.duration || !activityForm.calories) {
+    return;
+  }
+
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to add activity for non-today date, blocked");
     return;
   }
 
@@ -502,6 +580,11 @@ const saveSleep = async () => {
   if (!userId.value || !sleepForm.hours || !sleepForm.quality) {
     return;
   }
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to save sleep for non-today date, blocked");
+    return;
+  }
   try {
     await $fetch("/api/sleep", {
       method: "POST",
@@ -523,6 +606,11 @@ const saveWater = async () => {
   if (!userId.value || !waterForm.goal || !waterForm.consumed) {
     return;
   }
+  if (!isToday.value) {
+    if (process.dev)
+      console.warn("Attempted to save water for non-today date, blocked");
+    return;
+  }
   try {
     await $fetch("/api/water", {
       method: "POST",
@@ -537,6 +625,61 @@ const saveWater = async () => {
   } catch (error) {
     console.error("Failed to save water", error);
   }
+};
+
+const beginMealDetailsStep = () => {
+  if (!mealFormSource.value) return;
+  mealFormStage.value = "details";
+};
+
+const deleteMeal = async (meal: MealEntry) => {
+  if (!meal.id) return;
+  try {
+    await $fetch(`/api/foods/${meal.id}`, { method: "DELETE" as any });
+    await fetchMealsForDay();
+  } catch (error) {
+    console.error("Failed to delete meal", error);
+  }
+};
+
+const deleteActivity = async (activity: ActivityEntry) => {
+  if (!activity.id) return;
+  try {
+    await $fetch(`/api/activities/${activity.id}`, { method: "DELETE" as any });
+    await fetchActivitiesForDay();
+  } catch (error) {
+    console.error("Failed to delete activity", error);
+  }
+};
+
+const toggleActivityStatus = async (activity: ActivityEntry) => {
+  if (!activity.id) return;
+  const nextStatus = activity.status === "Completed" ? "Planned" : "Completed";
+  try {
+    await $fetch(`/api/activities/${activity.id}`, {
+      method: "PATCH" as any,
+      body: { status: nextStatus },
+    });
+    await fetchActivitiesForDay();
+  } catch (error) {
+    console.error("Failed to update activity status", error);
+  }
+};
+
+const resetMealFormFlow = () => {
+  mealFormStage.value = "source";
+  mealFormSource.value = null;
+  mealForm.time = "";
+  mealForm.name = "";
+  mealForm.calories = "";
+  mealForm.location = "";
+  mealForm.portion = "";
+  mealForm.mealClass = "";
+  mealForm.protein = "";
+  mealForm.carbs = "";
+  mealForm.fat = "";
+  mealForm.sugar = "";
+  mealForm.sodium = "";
 };
 
 const handleAISuggestions = () => {
@@ -605,7 +748,7 @@ useSeoMeta({
             <h2>Fuel targets</h2>
           </header>
           <ul>
-            <li v-for="macro in macros" :key="macro.label">
+            <li v-for="macro in macros" :key="macro.key">
               <div class="macro-row">
                 <div>
                   <p class="macro-row__label">{{ macro.label }}</p>
@@ -672,7 +815,16 @@ useSeoMeta({
                 placeholder="Optional note"
               />
             </div>
-            <button class="btn btn--secondary" type="submit">Save sleep</button>
+            <p class="list-placeholder" v-if="!isToday">
+              You can only submit sleep entries for today's date.
+            </p>
+            <button
+              class="btn btn--secondary"
+              type="submit"
+              :disabled="!isToday"
+            >
+              Save sleep
+            </button>
           </form>
         </article>
 
@@ -710,7 +862,14 @@ useSeoMeta({
                 required
               />
             </div>
-            <button class="btn btn--secondary" type="submit">
+            <p class="list-placeholder" v-if="!isToday">
+              You can only submit hydration entries for today's date.
+            </p>
+            <button
+              class="btn btn--secondary"
+              type="submit"
+              :disabled="!isToday"
+            >
               Save hydration
             </button>
           </form>
@@ -749,7 +908,7 @@ useSeoMeta({
             <template v-else>
               <li
                 v-for="meal in meals"
-                :key="`${meal.time}-${meal.name}-${meal.date}`"
+                :key="meal.id || `${meal.time}-${meal.name}-${meal.date}`"
               >
                 <div class="meals-list__info">
                   <p class="meals-list__time">{{ meal.time }}</p>
@@ -757,85 +916,216 @@ useSeoMeta({
                   <p class="meals-list__meta">
                     {{ meal.date }} · {{ meal.location }}
                   </p>
+                  <p class="meals-list__meta" v-if="meal.mealClass">
+                    Class: {{ meal.mealClass }} · Portion:
+                    {{ meal.portion || "n/a" }}
+                  </p>
                   <p class="meals-list__macros">
                     {{ meal.macros.protein }}P / {{ meal.macros.carbs }}C /
-                    {{ meal.macros.fat }}F
+                    {{ meal.macros.fat }}F / {{ meal.macros.sugar }}S /
+                    {{ meal.macros.sodium }}Na
                   </p>
                 </div>
                 <div class="meals-list__stats">
                   <p class="meals-list__calories">{{ meal.calories }} cal</p>
+                  <button
+                    v-if="meal.id"
+                    type="button"
+                    class="icon-button"
+                    @click="deleteMeal(meal)"
+                  >
+                    ✕
+                  </button>
                 </div>
               </li>
             </template>
           </ul>
           <form class="form" @submit.prevent="addMeal">
-            <div class="form__row">
-              <input
-                v-model="mealForm.time"
-                type="time"
-                aria-label="Meal time"
-                required
-              />
-              <input
-                v-model="mealForm.calories"
-                type="number"
-                min="0"
-                placeholder="Calories"
-                required
-              />
-            </div>
-            <div class="form__row">
-              <input
-                v-model="mealForm.location"
-                type="text"
-                placeholder="Dining establishment"
-                required
-              />
-            </div>
-            <div class="form__row">
-              <input
-                v-model="mealForm.name"
-                type="text"
-                placeholder="Meal description"
-                required
-              />
-            </div>
-            <div class="form__row">
-              <input
-                v-model="mealForm.protein"
-                type="number"
-                min="0"
-                placeholder="Protein (g)"
-              />
-              <input
-                v-model="mealForm.carbs"
-                type="number"
-                min="0"
-                placeholder="Carbs (g)"
-              />
-              <input
-                v-model="mealForm.fat"
-                type="number"
-                min="0"
-                placeholder="Fat (g)"
-              />
-            </div>
-            <div class="form__actions">
+            <div v-if="mealFormStage === 'source'" class="meal-source-step">
+              <p class="meal-source-step__title">Where is this meal from?</p>
+              <div class="meal-source-options">
+                <button
+                  type="button"
+                  class="source-option"
+                  :class="{ active: mealFormSource === 'duke' }"
+                  @click="mealFormSource = 'duke'"
+                >
+                  Duke dining
+                  <span>Minimal entry – nutrition auto-filled later</span>
+                </button>
+                <button
+                  type="button"
+                  class="source-option"
+                  :class="{ active: mealFormSource === 'custom' }"
+                  @click="mealFormSource = 'custom'"
+                >
+                  Non-Duke meal
+                  <span>Provide macros & calories manually</span>
+                </button>
+              </div>
               <button
+                type="button"
                 class="btn btn--primary"
-                type="submit"
-                aria-label="Add meal"
+                :disabled="!mealFormSource"
+                @click="beginMealDetailsStep"
               >
-                Add Meal
+                Continue
               </button>
-              <NuxtLink
-                to="/suggestions"
-                class="btn btn--ai"
-                aria-label="AI meal suggestions"
-              >
-                AI Meal Suggestions
-              </NuxtLink>
             </div>
+
+            <template v-else>
+              <div class="form__row meal-detail-header">
+                <button
+                  type="button"
+                  class="btn btn--secondary btn--ghost"
+                  @click="resetMealFormFlow"
+                >
+                  ← Change source
+                </button>
+              </div>
+
+              <div v-if="mealFormSource === 'duke'" class="duke-form">
+                <div class="form__row">
+                  <input
+                    v-model="mealForm.time"
+                    type="time"
+                    aria-label="Meal time"
+                    required
+                  />
+                  <input
+                    v-model="mealForm.location"
+                    type="text"
+                    placeholder="Dining hall"
+                    required
+                  />
+                </div>
+                <div class="form__row">
+                  <textarea
+                    v-model="mealForm.name"
+                    rows="2"
+                    placeholder="Describe what you picked up"
+                    required
+                  ></textarea>
+                </div>
+                <div class="form__row">
+                  <input
+                    v-model="mealForm.portion"
+                    type="text"
+                    placeholder="Portion size (optional)"
+                  />
+                  <select v-model="mealForm.mealClass" required>
+                    <option value="" disabled>Select meal class</option>
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Snack</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div v-else class="custom-form">
+                <div class="form__row">
+                  <input
+                    v-model="mealForm.time"
+                    type="time"
+                    aria-label="Meal time"
+                    required
+                  />
+                  <input
+                    v-model="mealForm.calories"
+                    type="number"
+                    min="0"
+                    placeholder="Calories"
+                    required
+                  />
+                </div>
+                <div class="form__row form__row--date-note">
+                  <input
+                    v-model="mealForm.location"
+                    type="text"
+                    placeholder="Where was it prepared?"
+                    required
+                  />
+                  <input
+                    v-model="mealForm.portion"
+                    type="text"
+                    placeholder="Portion size / weight"
+                  />
+                </div>
+                <div class="form__row">
+                  <input
+                    v-model="mealForm.name"
+                    type="text"
+                    placeholder="Meal description"
+                    required
+                  />
+                  <select v-model="mealForm.mealClass" required>
+                    <option value="" disabled>Select meal class</option>
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Snack</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div class="form__row">
+                  <input
+                    v-model="mealForm.protein"
+                    type="number"
+                    min="0"
+                    placeholder="Protein (g)"
+                  />
+                  <input
+                    v-model="mealForm.carbs"
+                    type="number"
+                    min="0"
+                    placeholder="Carbs (g)"
+                  />
+                  <input
+                    v-model="mealForm.fat"
+                    type="number"
+                    min="0"
+                    placeholder="Fat (g)"
+                  />
+                </div>
+                <div class="form__row">
+                  <input
+                    v-model="mealForm.sugar"
+                    type="number"
+                    min="0"
+                    placeholder="Sugar (g)"
+                  />
+                  <input
+                    v-model="mealForm.sodium"
+                    type="number"
+                    min="0"
+                    placeholder="Sodium (mg)"
+                  />
+                </div>
+              </div>
+
+              <div class="form__actions">
+                <p class="list-placeholder" v-if="!isToday">
+                  You can only submit meals for today's date.
+                </p>
+                <button
+                  class="btn btn--primary"
+                  type="submit"
+                  aria-label="Add meal"
+                  :disabled="!isToday"
+                >
+                  Add Meal
+                </button>
+                <NuxtLink
+                  to="/suggestions"
+                  class="btn btn--ai"
+                  aria-label="AI meal suggestions"
+                >
+                  AI Meal Suggestions
+                </NuxtLink>
+              </div>
+            </template>
           </form>
         </article>
 
@@ -854,7 +1144,10 @@ useSeoMeta({
             <template v-else>
               <li
                 v-for="activity in activities"
-                :key="`${activity.type}-${activity.date}-${activity.duration}`"
+                :key="
+                  activity.id ||
+                  `${activity.type}-${activity.date}-${activity.duration}`
+                "
               >
                 <div>
                   <p class="activity-list__name">{{ activity.type }}</p>
@@ -874,6 +1167,26 @@ useSeoMeta({
                   <p class="activity-list__calories">
                     {{ activity.calories }} cal
                   </p>
+                  <button
+                    type="button"
+                    class="chip-button"
+                    v-if="activity.id"
+                    @click="toggleActivityStatus(activity)"
+                  >
+                    {{
+                      activity.status === "Planned"
+                        ? "Mark done"
+                        : "Mark planned"
+                    }}
+                  </button>
+                  <button
+                    v-if="activity.id"
+                    type="button"
+                    class="icon-button"
+                    @click="deleteActivity(activity)"
+                  >
+                    ✕
+                  </button>
                 </div>
               </li>
             </template>
@@ -912,7 +1225,14 @@ useSeoMeta({
               </select>
             </div>
             <div class="form__actions form__actions--single">
-              <button class="btn btn--primary" type="submit">
+              <p class="list-placeholder" v-if="!isToday">
+                You can only submit activities for today's date.
+              </p>
+              <button
+                class="btn btn--primary"
+                type="submit"
+                :disabled="!isToday"
+              >
                 Log activity
               </button>
             </div>
@@ -1026,6 +1346,12 @@ useSeoMeta({
   border: 1px solid rgba(79, 156, 255, 0.4);
 }
 
+.btn--ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8f7f4;
+}
+
 .btn:hover:not(:disabled) {
   transform: translateY(-2px);
 }
@@ -1133,7 +1459,7 @@ useSeoMeta({
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 /* Reserve vertical space for dynamic lists so inserting/removing items doesn't
@@ -1261,7 +1587,7 @@ useSeoMeta({
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.75rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -1269,6 +1595,7 @@ useSeoMeta({
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .activity-card .activity-list {
@@ -1277,6 +1604,49 @@ useSeoMeta({
 
 .activity-card .form {
   margin-top: auto;
+}
+
+/* Reserve space for the meals and activity forms so adding extra inputs doesn't shift layout */
+.meals-card .form {
+  /* Reserve more vertical space for the full meal form (prevents jump when extra rows appear) */
+  min-height: 360px;
+}
+
+.activity-card .form {
+  min-height: 200px;
+}
+
+.form__row {
+  margin-bottom: 10px;
+}
+
+/* Slightly increase horizontal gap between inputs for clearer spacing */
+
+/* Use CSS grid for meal rows so inputs get equal widths and consistent gaps
+   regardless of how many columns are present (2 or 3). This prevents
+   uneven spacing caused by varying input types (time, number, text). */
+.meals-card .form .form__row,
+.custom-form .form__row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1.25rem;
+  align-items: center;
+  min-height: 48px; /* ensure consistent row height */
+}
+
+/* Ensure each input/select/textarea in those meal rows stretches to fill column */
+.meals-card .form .form__row > *,
+.custom-form .form__row > * {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Make textarea a stable size so it doesn't change layout when toggled */
+.duke-form textarea {
+  min-height: 64px;
 }
 
 /* Ensure meals card behaves the same as activity: the list grows and the form
@@ -1348,7 +1718,7 @@ useSeoMeta({
 .form {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem; /* increased vertical spacing between form rows */
   margin-top: 0.5rem;
 }
 
@@ -1405,6 +1775,84 @@ useSeoMeta({
   font-style: italic;
   display: block;
   border-bottom: none;
+}
+
+.icon-button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f8f7f4;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+
+.chip-button {
+  background: rgba(79, 156, 255, 0.18);
+  border-radius: 999px;
+  border: 1px solid rgba(79, 156, 255, 0.4);
+  color: #dfe9ff;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.meal-source-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.meal-source-step__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.meal-source-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.source-option {
+  border-radius: 18px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f8f7f4;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.source-option span {
+  font-size: 0.85rem;
+  color: #b8b4ad;
+}
+
+.source-option.active {
+  border-color: rgba(79, 156, 255, 0.8);
+  background: rgba(79, 156, 255, 0.15);
+}
+
+.meal-detail-header {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.duke-form textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8f7f4;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.duke-form textarea::placeholder {
+  color: rgba(248, 247, 244, 0.6);
 }
 
 .btn--ai {

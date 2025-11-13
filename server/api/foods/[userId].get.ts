@@ -5,10 +5,12 @@ type FoodDoc = {
   itemName: string;
   calories: number;
   diningEstablishment: string;
-  macros: { protein: number; carbs: number; fat: number };
+  macros: { protein: number; carbs: number; fat: number; sugar?: number; sodium?: number };
   dateConsumed: string;
   dayKey: string;
   time?: string;
+  portion?: string;
+  mealClass?: string;
 };
 
 export default defineEventHandler(async (event) => {
