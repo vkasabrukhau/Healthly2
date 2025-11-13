@@ -5,7 +5,7 @@ import { useHead } from "#imports";
 // VChart component has the renderer, series and components available.
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
-import { ScatterChart } from "echarts/charts";
+import { LineChart } from "echarts/charts";
 import * as echartsComponents from "echarts/components";
 
 // Register a base set of components plus whatever is exported by the
@@ -13,7 +13,7 @@ import * as echartsComponents from "echarts/components";
 // echarts package versions where specific named exports may vary.
 use([
   CanvasRenderer,
-  ScatterChart,
+  LineChart,
   ...Object.values(echartsComponents as any),
 ] as any);
 
@@ -101,43 +101,75 @@ function buildDotOption(
     return unit ? `${value}${unit}` : `${value}`;
   };
 
+  // Helper: convert hex color to rgba string with alpha
+  const hexToRgba = (hex: string, alpha = 1) => {
+    const h = hex.replace("#", "");
+    const full =
+      h.length === 3
+        ? h
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : h;
+    const bigint = parseInt(full, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   return {
     grid: { left: 45, right: 18, top: 30, bottom: 40 },
     xAxis: {
       type: "category",
       data: labels.value,
-      axisLabel: { color: "rgba(255, 255, 255, 0.7)" },
-      axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+      axisLabel: {
+        color: "rgba(255, 255, 255, 0.75)",
+        formatter: (val: string) => {
+          const d = new Date(val);
+          if (isNaN(d.getTime())) return val;
+          return `${d.getMonth() + 1}/${d.getDate()}`; // M/D
+        },
+        rotate: 0,
+      },
+      axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
       splitLine: { show: false },
     },
     yAxis: {
       type: "value",
       name: unit ?? "",
       max,
-      axisLabel: { color: "rgba(255, 255, 255, 0.7)" },
+      axisLabel: { color: "rgba(255, 255, 255, 0.75)" },
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
+      splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.06)" } },
     },
     tooltip: {
-      trigger: "item",
+      trigger: "axis",
+      axisPointer: { type: "line" },
       padding: 10,
       borderColor: "rgba(255, 255, 255, 0.2)",
-      formatter: (params: any) =>
-        `${params.name}<br/>${label}: ${formatValue(params.value as number)}`,
+      formatter: (params: any) => {
+        const p = params && params[0];
+        if (!p) return "";
+        return `${p.axisValueLabel}<br/>${label}: ${formatValue(
+          p.data as number
+        )}`;
+      },
     },
     series: [
       {
-        type: "scatter",
+        type: "line",
         data: values,
+        smooth: true,
+        showSymbol: true,
         symbol: "circle",
         symbolSize,
-        itemStyle: {
-          color,
-          shadowBlur: 18,
-          shadowColor: "rgba(0, 0, 0, 0.25)",
-          opacity: 0.95,
+        lineStyle: { color, width: 2 },
+        itemStyle: { color },
+        areaStyle: {
+          color: hexToRgba(color, 0.12),
         },
-        emphasis: { scale: 1.15, itemStyle: { opacity: 1 } },
+        emphasis: { scale: 1.05, itemStyle: { opacity: 1 } },
       },
     ],
   };

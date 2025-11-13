@@ -321,7 +321,8 @@ const gaugeOption = computed(() => ({
         color: "#f8f7f4",
         formatter: (val: number) => `${val}%`,
       },
-      data: [{ value: dailyScore.value, name: "Today’s Index" }],
+      // hide the caption label so only the numeric detail is shown
+      data: [{ value: dailyScore.value, name: "" }],
     },
   ],
 }));
@@ -806,6 +807,39 @@ useSeoMeta({
   description:
     "Review your authenticated Healthly dashboard data and log meals, water, and activity.",
 });
+
+// Load persisted user profile (including mealPlanMode) when we have the userId
+watch(
+  () => userId.value,
+  async (uid) => {
+    if (!uid) return;
+    try {
+      const resp: any = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
+      if (resp && resp.profile && resp.profile.mealPlanMode) {
+        mealPlanMode.value = resp.profile.mealPlanMode;
+      }
+    } catch (err) {
+      if (process.dev) console.warn("Failed to load user profile:", err);
+    }
+  },
+  { immediate: true }
+);
+
+// Persist mealPlanMode when user changes it (simple immediate save)
+watch(
+  () => mealPlanMode.value,
+  async (mode) => {
+    if (!userId.value) return;
+    try {
+      await $fetch("/api/users", {
+        method: "POST",
+        body: { userId: userId.value, mealPlanMode: mode },
+      });
+    } catch (err) {
+      if (process.dev) console.warn("Failed to save mealPlanMode:", err);
+    }
+  }
+);
 </script>
 
 <template>
@@ -820,8 +854,9 @@ useSeoMeta({
             <label for="day-picker">Viewing date</label>
             <input id="day-picker" type="date" v-model="selectedDate" />
           </div>
+
           <div class="mealplan-control">
-            <p class="card__eyebrow">Meal plan mode</p>
+            <p class="mealplan-label">Meal plan mode</p>
             <div class="plan-buttons">
               <button
                 :class="['btn', { active: mealPlanMode === 'cut' }]"
@@ -856,20 +891,7 @@ useSeoMeta({
             <ClientOnly>
               <VChart class="dial-chart" :option="gaugeOption" autoresize />
             </ClientOnly>
-            <div class="dial-metrics">
-              <div class="mini-stat">
-                <p class="mini-stat__label">Sleep</p>
-                <p class="mini-stat__value">{{ sleep.hours }} hrs</p>
-                <p class="mini-stat__sub">{{ sleep.quality }}</p>
-              </div>
-              <div class="mini-stat">
-                <p class="mini-stat__label">Hydration</p>
-                <p class="mini-stat__value">{{ waterPercent }}%</p>
-                <p class="mini-stat__sub">
-                  {{ water.consumed }} / {{ water.goal }} oz
-                </p>
-              </div>
-            </div>
+            <!-- removed small metric tiles under the dial per design -->
           </div>
           <p class="dial-card__note">
             Index blends sleep quality, macro consistency, completed movement,
@@ -920,7 +942,10 @@ useSeoMeta({
         <article class="card sleep-card">
           <header>
             <p class="card__eyebrow">Sleep</p>
-            <h3 v-if="!isSleepLoading">{{ sleep.hours }} hrs</h3>
+            <h3 v-if="!isSleepLoading">
+              <span class="sleep-hours">{{ sleep.hours }}</span>
+              <span class="sleep-hours-label">hrs</span>
+            </h3>
             <h3 v-else>Loading…</h3>
           </header>
           <p class="card__sub">
@@ -1434,12 +1459,24 @@ useSeoMeta({
   min-width: 220px;
 }
 
+/* Make the native calendar icon visible on dark backgrounds (WebKit) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+}
+
 .mealplan-control {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.35rem;
   min-width: 220px;
+}
+
+.mealplan-label {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #ffb08f; /* match viewing date label color */
 }
 
 .header-controls {
@@ -1461,10 +1498,12 @@ useSeoMeta({
   color: #f8f7f4;
 }
 
+/* Subtle blue hue for the selected plan button */
 .plan-buttons .btn.active {
-  background: linear-gradient(120deg, #4facfe, #ff8367);
+  background: linear-gradient(120deg, #4facfe, #3b82f6);
   color: white;
-  box-shadow: 0 8px 20px rgba(79, 172, 254, 0.12);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 
 .day-selector label {
@@ -1734,12 +1773,40 @@ useSeoMeta({
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* two equal columns so Sleep and Hydration are side-by-side; AI copilot
+     will span both columns below */
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.25rem;
 }
 
 .ai-card {
   gap: 0.5rem;
+  grid-column: 1 / -1; /* span full width under sleep + hydration */
+}
+
+/* Make sleep hours large and prominent */
+.sleep-card header h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.sleep-card .sleep-hours {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.sleep-card .sleep-hours-label {
+  font-size: 1.1rem;
+  color: #b8b4ad;
+}
+
+/* Bottom-justify hydration form */
+.water-card {
+  display: flex;
+  flex-direction: column;
+}
+.water-card .form {
+  margin-top: auto;
 }
 
 .card__sub {

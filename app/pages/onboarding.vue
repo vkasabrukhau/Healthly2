@@ -86,6 +86,7 @@ const form = reactive({
   exerciseLevel: exerciseLevels?.[1]?.value ?? exerciseLevels?.[0]?.value ?? "",
   exerciseFrequency:
     frequencyOptions?.[1]?.value ?? frequencyOptions?.[0]?.value ?? "",
+  mealPlanMode: "maintain",
 });
 
 const attemptedSubmit = ref(false);
@@ -228,6 +229,7 @@ const handleSubmit = async () => {
         maintenance: form.maintenance,
         exerciseLevel: form.exerciseLevel,
         exerciseFrequency: form.exerciseFrequency,
+        mealPlanMode: form.mealPlanMode,
       },
     });
   } catch (error) {
@@ -398,6 +400,31 @@ const handleSubmit = async () => {
                   {{ option.label }}
                 </option>
               </select>
+            </label>
+            <label>
+              <span>Meal plan mode</span>
+              <div style="display: flex; gap: 0.5rem">
+                <label style="display: flex; align-items: center; gap: 0.4rem">
+                  <input type="radio" v-model="form.mealPlanMode" value="cut" />
+                  <small>Cut</small>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.4rem">
+                  <input
+                    type="radio"
+                    v-model="form.mealPlanMode"
+                    value="maintain"
+                  />
+                  <small>Maintain</small>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.4rem">
+                  <input
+                    type="radio"
+                    v-model="form.mealPlanMode"
+                    value="bulk"
+                  />
+                  <small>Bulk</small>
+                </label>
+              </div>
             </label>
           </div>
 

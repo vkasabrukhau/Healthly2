@@ -9,6 +9,7 @@ type UserProfileDoc = {
   exerciseLevel: string;
   exerciseFrequency: string;
   photoDataUrl?: string;
+  mealPlanMode?: "cut" | "maintain" | "bulk";
   createdAt: Date;
   updatedAt: Date;
 };
@@ -26,46 +27,69 @@ export default defineEventHandler(async (event) => {
     photoDataUrl,
   } = body;
 
-  if (!userId || !firstName || !lastName || !dob || typeof age !== "number") {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing required onboarding data",
-    });
-  }
+  // Determine whether this request contains the full onboarding profile
+  // (in which case we must validate all required fields) or is a partial
+  // update (for example only updating `mealPlanMode`).
+  const hasFullProfile =
+    !!userId && !!firstName && !!lastName && !!dob && typeof age === "number";
 
-  if (!exerciseLevel || !exerciseFrequency) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Exercise info required",
-    });
-  }
-
-  const parsedDob = new Date(dob);
-  if (Number.isNaN(parsedDob.getTime())) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Invalid date of birth",
-    });
+  let parsedDob: Date | null = null;
+  if (hasFullProfile) {
+    if (!exerciseLevel || !exerciseFrequency) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Exercise info required",
+      });
+    }
+    parsedDob = new Date(dob as string);
+    if (Number.isNaN(parsedDob.getTime())) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Invalid date of birth",
+      });
+    }
   }
 
   const collection = await getCollection<UserProfileDoc>("user");
   const now = new Date();
 
+  if (hasFullProfile) {
+    await collection.updateOne(
+      { userId },
+      {
+        $set: {
+          firstName: (firstName as string).trim(),
+          lastName: (lastName as string).trim(),
+          dob: (parsedDob as Date).toISOString(),
+          age: age as number,
+          exerciseLevel,
+          exerciseFrequency,
+          photoDataUrl,
+          mealPlanMode: (body as any).mealPlanMode ?? undefined,
+          updatedAt: now,
+        },
+        $setOnInsert: { createdAt: now },
+      },
+      { upsert: true }
+    );
+    return { ok: true };
+  }
+
+  // Partial update (e.g., only mealPlanMode)
+  const partial: Partial<UserProfileDoc> = {};
+  if ((body as any).mealPlanMode)
+    partial.mealPlanMode = (body as any).mealPlanMode;
+
+  if (Object.keys(partial).length === 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing required onboarding data or partial fields",
+    });
+  }
+
   await collection.updateOne(
     { userId },
-    {
-      $set: {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        dob: parsedDob.toISOString(),
-        age,
-        exerciseLevel,
-        exerciseFrequency,
-        photoDataUrl,
-        updatedAt: now,
-      },
-      $setOnInsert: { createdAt: now },
-    },
+    { $set: { ...partial, updatedAt: now }, $setOnInsert: { createdAt: now } },
     { upsert: true }
   );
 

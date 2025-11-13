@@ -9,11 +9,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Missing activityId" });
   }
 
-  let objectId: ObjectId;
+  // Accept either a BSON ObjectId string or a plain string id. If the
+  // activityId is not a valid ObjectId, fall back to using the string as the
+  // filter. This makes the endpoint more resilient to mixed id formats.
+  let objectId: ObjectId | null = null;
   try {
     objectId = new ObjectId(activityId);
   } catch (error) {
-    throw createError({ statusCode: 400, statusMessage: "Invalid activityId" });
+    objectId = null;
   }
 
   const body = await readBody<Record<string, any>>(event);
@@ -32,7 +35,10 @@ export default defineEventHandler(async (event) => {
   const now = new Date();
 
   // Fetch the activity and ensure it belongs to today before allowing updates
-  const existing = await collection.findOne({ _id: objectId });
+  // Try to locate the existing activity by ObjectId first; if that failed,
+  // try to find by the raw string key (some older entries may have string ids).
+  const filter: any = objectId ? { _id: objectId } : { _id: activityId };
+  const existing = await collection.findOne(filter);
   if (!existing) {
     throw createError({ statusCode: 404, statusMessage: "Activity not found" });
   }
@@ -55,7 +61,7 @@ export default defineEventHandler(async (event) => {
 
   let result;
   try {
-    result = await collection.findOneAndUpdate({ _id: objectId }, updateOps, {
+    result = await collection.findOneAndUpdate(filter, updateOps, {
       returnDocument: "after",
     });
   } catch (err) {
