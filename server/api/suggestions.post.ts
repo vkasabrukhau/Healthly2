@@ -1,6 +1,10 @@
 import { defineEventHandler, readBody, createError } from "h3";
 import { useRuntimeConfig } from "#imports";
-import { loadMealsDataset, MealRow } from "../utils/meals";
+import {
+  loadMealsDataset,
+  MealRow,
+  findMealMatchByName,
+} from "../utils/meals";
 import { requireAuthenticatedUser } from "./utils/require-auth";
 
 type SuggestionFilters = {
@@ -42,19 +46,29 @@ type LlmSuggestion = {
   };
 };
 
-const normalizeKey = (value?: string | null) =>
-  (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const pickFirstString = (entry: any, keys: string[]): string | undefined => {
+  for (const key of keys) {
+    const value = entry?.[key];
+    if (typeof value === "string" && value.trim().length) {
+      return value.trim();
+    }
+  }
+  return undefined;
+};
 
-function findMealMatch(name: string | undefined, meals: MealRow[]) {
-  if (!name) return null;
-  const target = normalizeKey(name);
-  if (!target) return null;
-  return (
-    meals.find((row) => normalizeKey(row.item_name) === target) ||
-    meals.find((row) => target.includes(normalizeKey(row.item_name))) ||
-    meals.find((row) => normalizeKey(row.item_name).includes(target))
-  );
-}
+const pickFirstNumber = (entry: any, keys: string[]): number | undefined => {
+  for (const key of keys) {
+    const raw = entry?.[key];
+    const value =
+      typeof raw === "string"
+        ? Number(raw.replace(/[^0-9.\-]/g, ""))
+        : Number(raw);
+    if (!Number.isNaN(value) && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return undefined;
+};
 
 function matchesFilters(row: MealRow, filters: SuggestionFilters) {
   const {
@@ -90,7 +104,7 @@ function buildPrompt(
   meals: MealRow[]
 ) {
   const instructions = `You are a nutritionist giving advisory to a person on what they should be eating.
-You have been provided a data set with foods and their macro breakdowns. Return a JSON array containing exactly 8 suggestions.
+  You have been provided a data set with foods and their macro breakdowns. Return a JSON array containing exactly 10 suggestions.
 Each suggestion must include: Food Name, Location, Calories, Total Fat, Protein,	Total Carbohydrate,	Total Sugars, Total Sodium. ALL details MUST come from the provided CSV file.
 Use only the foods provided in the dataset subset. If a meal uses multiple components, combine them into a single entry and aggregate the macros. For example with items like the Ginger and Soy Rice Bowls follow bowl making guidelines to combine items.
 User info and filters will be provided in JSON. Respond with JSON ONLY (no prose).`;
@@ -119,28 +133,75 @@ function sanitizeSuggestions(payload: any, meals: MealRow[]): LlmSuggestion[] {
   if (!Array.isArray(payload)) return [];
   return payload
     .map((entry) => {
-      const macros = entry?.macros || {};
+      const macrosBlock = entry?.macros || {};
+      const resolvedTitle =
+        pickFirstString(entry, [
+          "title",
+          "name",
+          "food",
+          "foodName",
+          "item_name",
+          "Food Name",
+        ]) || "Meal suggestion";
+
+      const resolvedLocation =
+        pickFirstString(entry, ["location", "Location", "diningHall"]) || null;
+
+      const resolvedServing = pickFirstString(entry, [
+        "servingSize",
+        "serving_size",
+        "Serving Size",
+      ]);
+
+      const macroCalories =
+        pickFirstNumber(macrosBlock, ["calories", "Calories"]) ??
+        pickFirstNumber(entry, ["calories", "Calories"]);
+      const macroProtein =
+        pickFirstNumber(macrosBlock, ["protein", "Protein"]) ??
+        pickFirstNumber(entry, ["protein", "Protein"]);
+      const macroCarbs =
+        pickFirstNumber(macrosBlock, [
+          "carbs",
+          "Carbs",
+          "Total Carbohydrate",
+        ]) ?? pickFirstNumber(entry, ["carbs", "Carbs", "Total Carbohydrate"]);
+      const macroFat =
+        pickFirstNumber(macrosBlock, ["fat", "Fat", "Total Fat"]) ??
+        pickFirstNumber(entry, ["fat", "Fat", "Total Fat"]);
+      const macroSugar =
+        pickFirstNumber(macrosBlock, ["sugar", "Sugar", "Total Sugars"]) ??
+        pickFirstNumber(entry, ["sugar", "Sugar", "Total Sugars"]);
+      const macroSodium =
+        pickFirstNumber(macrosBlock, ["sodium", "Sodium", "Total Sodium"]) ??
+        pickFirstNumber(entry, ["sodium", "Sodium", "Total Sodium"]);
+
       const suggestion: LlmSuggestion = {
-        title: entry?.title || entry?.name || "Meal suggestion",
+        title: resolvedTitle,
         description: entry?.description || entry?.summary || "",
         timeOfDay: entry?.timeOfDay,
         tag: entry?.tag || entry?.context,
         density: entry?.density,
-        sourceItem: entry?.sourceItem || entry?.source || null,
-        location: entry?.location || null,
-        servingSize: entry?.servingSize || null,
+        sourceItem:
+          entry?.sourceItem ||
+          entry?.source ||
+          entry?.item_name ||
+          entry?.name ||
+          entry?.title ||
+          null,
+        location: resolvedLocation,
+        servingSize: resolvedServing || null,
         macros: {
-          calories: Number(macros.calories) || 0,
-          protein: Number(macros.protein) || 0,
-          carbs: Number(macros.carbs) || 0,
-          fat: Number(macros.fat) || 0,
-          sugar: Number(macros.sugar) || 0,
-          sodium: Number(macros.sodium) || 0,
+          calories: macroCalories ?? 0,
+          protein: macroProtein ?? 0,
+          carbs: macroCarbs ?? 0,
+          fat: macroFat ?? 0,
+          sugar: macroSugar ?? 0,
+          sodium: macroSodium ?? 0,
         },
       };
       const match =
-        findMealMatch(suggestion.sourceItem, meals) ||
-        findMealMatch(suggestion.title, meals);
+        findMealMatchByName(suggestion.sourceItem, meals) ||
+        findMealMatchByName(suggestion.title, meals);
       if (match) {
         suggestion.location = match.location || suggestion.location || null;
         suggestion.servingSize =

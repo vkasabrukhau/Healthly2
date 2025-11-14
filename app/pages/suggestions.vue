@@ -39,7 +39,6 @@ const userId = computed(() => {
 const formDefaults = {
   location: "",
   mealSection: "",
-  category: "",
   calories: "",
   maxFat: "",
   minProtein: "",
@@ -90,8 +89,6 @@ function buildFiltersPayload() {
       form.mealSection && form.mealSection !== "__all__"
         ? form.mealSection
         : null,
-    category:
-      form.category && form.category !== "__all__" ? form.category : null,
     calories: form.calories ? Number(form.calories) : null,
     maxFat: form.maxFat ? Number(form.maxFat) : null,
     minProtein: form.minProtein ? Number(form.minProtein) : null,
@@ -104,11 +101,9 @@ function buildFiltersPayload() {
 function buildFiltersSummary(filters: Record<string, any>) {
   const loc = filters.location === "__all__" ? null : filters.location;
   const sec = filters.mealSection === "__all__" ? null : filters.mealSection;
-  const cat = filters.category === "__all__" ? null : filters.category;
   const parts = [
     loc && `Location: ${loc}`,
     sec && `Section: ${sec}`,
-    cat && `Category: ${cat}`,
     filters.calories && `≈ ${filters.calories} kcal`,
     filters.maxFat && `≤ ${filters.maxFat}g fat`,
     filters.minProtein && `≥ ${filters.minProtein}g protein`,
@@ -133,7 +128,7 @@ function buildUserContext(filters: Record<string, any>) {
     exercisePlanned: filters.workoutTiming,
     mealPlanMode: profileData?.mealPlanMode ?? null,
     waterGoal: profileData?.waterGoal ?? null,
-    requestedItemType: filters.category,
+    requestedItemType: null,
     macroGoals: {
       calories: macros.calories,
       protein: macros.protein,
@@ -297,21 +292,8 @@ onMounted(() => {
     <header class="intro">
       <div>
         <p class="eyebrow">AI suggestions</p>
-        <h1>Dial in your next meal with the cafeteria dataset.</h1>
-        <p>
-          Provide a few details and we’ll narrow the Duke dining dataset before
-          sending it to the nutrition model on OpenRouter. You’ll receive eight
-          JSON suggestions that match your macros, time of day, and workout
-          context.
-        </p>
-        <p class="note">
-          Suggestions use the OpenRouter model you configured. Each request
-          filters the CSV dataset on-device first to reduce hallucinations.
-        </p>
+        <h1>Dial in your next meal</h1>
       </div>
-      <NuxtLink class="btn btn--secondary" to="/dashboard">
-        Back to dashboard
-      </NuxtLink>
     </header>
 
     <section class="card form-card">
@@ -387,37 +369,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="category">Category</label>
-            <div class="control-field">
-              <span class="control-icon">🥗</span>
-              <template
-                v-if="
-                  filterOptions.categories && filterOptions.categories.length
-                "
-              >
-                <select id="category" v-model="form.category">
-                  <option value="__all__">All categories</option>
-                  <option value="" disabled>Select category</option>
-                  <option
-                    v-for="cat in filterOptions.categories"
-                    :key="cat"
-                    :value="cat"
-                  >
-                    {{ cat }}
-                  </option>
-                </select>
-              </template>
-              <template v-else>
-                <input
-                  id="category"
-                  v-model="form.category"
-                  type="text"
-                  placeholder="e.g. Smoothies"
-                />
-              </template>
-            </div>
-          </div>
+          <!-- Category filter removed per request -->
 
           <div class="form-group">
             <label for="calories">Calories (target)</label>

@@ -9,6 +9,13 @@ type WeightDoc = {
   updatedAt: Date;
 };
 
+type WeightHistoryDoc = {
+  userId: string;
+  dayKey: string;
+  weight: number;
+  recordedAt: Date;
+};
+
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
     userId?: string;
@@ -72,6 +79,19 @@ export default defineEventHandler(async (event) => {
     // and continue — weight historical data is preserved.
     // eslint-disable-next-line no-console
     console.error("Failed to update user's current weight", err);
+  }
+
+  try {
+    const history = await getCollection<WeightHistoryDoc>("weight_history");
+    await history.insertOne({
+      userId,
+      dayKey,
+      weight: Number(weight),
+      recordedAt: now,
+    });
+  } catch (err) {
+    // history tracking shouldn't break primary flow
+    console.error("Failed to record weight history", err);
   }
 
   return { ok: true };

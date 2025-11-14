@@ -72,6 +72,11 @@ type ActivityEntry = {
   completedAt?: string;
 };
 
+type WeightHistoryEntry = {
+  weight: number;
+  recordedAt: string;
+};
+
 // Baseline metrics provided by the server (persisted `baselineMetrics` on the user)
 const baseline = ref<Record<string, number> | null>(null);
 
@@ -192,9 +197,21 @@ const waterForm = reactive({
 const weight = reactive({
   today: null as number | null,
   yesterday: null as number | null,
+  history: [] as WeightHistoryEntry[],
 });
 const weightForm = reactive({ weight: "" });
 const isWeightLoading = ref(false);
+
+const formatWeightTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch (err) {
+    return iso;
+  }
+};
 
 const getToday = () => new Date().toISOString().slice(0, 10);
 const todayRef = ref(getToday());
@@ -203,11 +220,6 @@ const selectedDate = ref(todayRef.value);
 const isToday = computed(() => selectedDate.value === todayRef.value);
 const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
-const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
-// When the profile is loaded from the server we assign `mealPlanMode` programmatically.
-// Use this flag to suppress the watch that persists the value (and triggers regeneration)
-// so that loading the existing value from MongoDB doesn't cause an OpenRouter call.
-const suppressMealPlanPersist = ref(false);
 
 const mealForm = reactive({
   time: "",
@@ -690,6 +702,7 @@ watch(
       waterForm.goal = "";
       weight.today = null;
       weight.yesterday = null;
+      weight.history = [];
       weightForm.weight = "";
     }
   },
@@ -705,6 +718,9 @@ async function fetchWeightForDay() {
     });
     const today = (response as any)?.today;
     const previous = (response as any)?.previous;
+    const history = Array.isArray((response as any)?.history)
+      ? (response as any)?.history
+      : [];
     // API returns today's weight as the user's currentWeight (preferred)
     if (typeof today === "number") {
       weight.today = Number(today);
@@ -715,6 +731,10 @@ async function fetchWeightForDay() {
       weight.today = null;
     }
     weight.yesterday = previous ? Number(previous.weight) : null;
+    weight.history = history.map((entry: any) => ({
+      weight: Number(entry.weight),
+      recordedAt: entry.recordedAt,
+    }));
     weightForm.weight = weight.today != null ? String(weight.today) : "";
   } catch (error) {
     if (process.dev) console.error("Failed to load weight", error);
@@ -729,7 +749,6 @@ const addMeal = async () => {
   }
 
   if (!isToday.value) {
-    // protect client-side: disallow submitting for non-today dates
     if (process.dev)
       console.warn("Attempted to add meal for non-today date, blocked");
     return;
@@ -737,65 +756,71 @@ const addMeal = async () => {
 
   const isCustomMeal = mealFormSource.value === "custom";
 
-  if (
-    !mealForm.time ||
-    !mealForm.name ||
-    !mealForm.location ||
-    (isCustomMeal && !mealForm.calories)
-  ) {
+  if (!mealForm.name || !mealForm.location) {
     return;
   }
-
-  const activeDate = selectedDate.value || todayRef.value;
-
-  const macros: MacroBreakdown = {
-    protein: Number(mealForm.protein) || 0,
-    carbs: Number(mealForm.carbs) || 0,
-    fat: Number(mealForm.fat) || 0,
-    sugar: Number(mealForm.sugar) || 0,
-    sodium: Number(mealForm.sodium) || 0,
-  };
-
-  const entry: MealEntry = {
-    time: mealForm.time,
-    name: mealForm.name,
-    calories: Number(mealForm.calories) || 0,
-    location: mealForm.location,
-    date: activeDate,
-    macros,
-    portion: mealForm.portion,
-    mealClass: mealForm.mealClass,
-  };
+  if (isCustomMeal && (!mealForm.time || !mealForm.calories)) {
+    return;
+  }
 
   if (!userId.value) {
     return;
   }
 
   try {
-    const res: any = await $fetch("/api/foods", {
-      method: "POST",
-      body: {
-        userId: userId.value,
-        itemName: entry.name,
-        calories: entry.calories,
-        diningEstablishment: entry.location,
-        macros: entry.macros,
-        dateConsumed: entry.date,
-        time: entry.time,
-        portion: entry.portion,
-        mealClass: entry.mealClass,
-      },
-    });
+    if (isCustomMeal) {
+      const activeDate = selectedDate.value || todayRef.value;
+      const macros: MacroBreakdown = {
+        protein: Number(mealForm.protein) || 0,
+        carbs: Number(mealForm.carbs) || 0,
+        fat: Number(mealForm.fat) || 0,
+        sugar: Number(mealForm.sugar) || 0,
+        sodium: Number(mealForm.sodium) || 0,
+      };
 
-    // Optimistically add the new meal to the UI so the list updates immediately.
-    try {
-      (entry as any).id = res?.insertedId?.toString?.() ?? res?.insertedId;
-      meals.value = [entry, ...meals.value];
-    } catch (e) {
-      // ignore optimistic update errors
+      const entry: MealEntry = {
+        time: mealForm.time,
+        name: mealForm.name,
+        calories: Number(mealForm.calories) || 0,
+        location: mealForm.location,
+        date: activeDate,
+        macros,
+        portion: mealForm.portion,
+        mealClass: mealForm.mealClass,
+      };
+
+      const res: any = await $fetch("/api/foods", {
+        method: "POST",
+        body: {
+          userId: userId.value,
+          itemName: entry.name,
+          calories: entry.calories,
+          diningEstablishment: entry.location,
+          macros: entry.macros,
+          dateConsumed: entry.date,
+          time: entry.time,
+          portion: entry.portion,
+          mealClass: entry.mealClass,
+        },
+      });
+
+      try {
+        (entry as any).id = res?.insertedId?.toString?.() ?? res?.insertedId;
+        meals.value = [entry, ...meals.value];
+      } catch (e) {
+        // ignore optimistic update errors
+      }
+    } else {
+      await $fetch("/api/foods/duke", {
+        method: "POST",
+        body: {
+          userId: userId.value,
+          location: mealForm.location,
+          description: mealForm.name,
+        },
+      });
     }
 
-    // Refresh the canonical list from the server to ensure ordering and fields
     await fetchMealsForDay();
   } catch (error) {
     console.error("Failed to persist food entry", error);
@@ -952,6 +977,7 @@ const saveWeight = async () => {
 
 const beginMealDetailsStep = () => {
   if (!mealFormSource.value) return;
+  mealForm.time = new Date().toTimeString().slice(0, 5);
   mealFormStage.value = "details";
 };
 
@@ -1040,45 +1066,7 @@ useSeoMeta({
     "Review your authenticated Healthly dashboard data and log meals, water, and activity.",
 });
 
-// Load persisted user profile (including mealPlanMode) when we have the userId
-watch(
-  () => userId.value,
-  async (uid) => {
-    if (!uid) return;
-    try {
-      const resp: any = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
-      if (resp && resp.profile && resp.profile.mealPlanMode) {
-        // Prevent the mealPlanMode watcher from persisting/regenerating
-        // when we are just loading the existing value from MongoDB.
-        suppressMealPlanPersist.value = true;
-        mealPlanMode.value = resp.profile.mealPlanMode;
-        // allow subsequent user-initiated changes to persist
-        suppressMealPlanPersist.value = false;
-      }
-    } catch (err) {
-      if (process.dev) console.warn("Failed to load user profile:", err);
-    }
-  },
-  { immediate: true }
-);
-
-// Persist mealPlanMode when user changes it (simple immediate save)
-watch(
-  () => mealPlanMode.value,
-  async (mode) => {
-    // If we're intentionally assigning the value from the server, skip persisting.
-    if (suppressMealPlanPersist.value) return;
-    if (!userId.value) return;
-    try {
-      await $fetch("/api/users", {
-        method: "POST",
-        body: { userId: userId.value, mealPlanMode: mode },
-      });
-    } catch (err) {
-      if (process.dev) console.warn("Failed to save mealPlanMode:", err);
-    }
-  }
-);
+// (mealPlanMode selector removed) keep profile fetching and other logic elsewhere
 </script>
 
 <template>
@@ -1092,30 +1080,6 @@ watch(
           <div class="day-selector">
             <label for="day-picker">Viewing date</label>
             <input id="day-picker" type="date" v-model="selectedDate" />
-          </div>
-
-          <div class="mealplan-control">
-            <p class="mealplan-label">Meal plan mode</p>
-            <div class="plan-buttons">
-              <button
-                :class="['btn', { active: mealPlanMode === 'cut' }]"
-                @click="mealPlanMode = 'cut'"
-              >
-                Cut
-              </button>
-              <button
-                :class="['btn', { active: mealPlanMode === 'maintain' }]"
-                @click="mealPlanMode = 'maintain'"
-              >
-                Maintain
-              </button>
-              <button
-                :class="['btn', { active: mealPlanMode === 'bulk' }]"
-                @click="mealPlanMode = 'bulk'"
-              >
-                Bulk
-              </button>
-            </div>
           </div>
         </div>
       </header>
@@ -1335,6 +1299,12 @@ watch(
               Save weight
             </button>
           </form>
+          <ul v-if="weight.history.length" class="weight-history">
+            <li v-for="entry in weight.history" :key="entry.recordedAt">
+              <span>{{ formatWeightTime(entry.recordedAt) }}</span>
+              <strong>{{ entry.weight }} lbs</strong>
+            </li>
+          </ul>
         </article>
 
         <article class="card ai-card">
@@ -1451,12 +1421,10 @@ watch(
 
               <div v-if="mealFormSource === 'duke'" class="duke-form">
                 <div class="form__row">
-                  <input
-                    v-model="mealForm.time"
-                    type="time"
-                    aria-label="Meal time"
-                    required
-                  />
+                  <div class="duke-form__time-note">
+                    <p>Log time</p>
+                    <span>Captured automatically at submission</span>
+                  </div>
                   <input
                     v-model="mealForm.location"
                     type="text"
@@ -2037,6 +2005,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-left: 0.35rem;
   color: #cfcac2;
 }
+.weight-history {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.weight-history li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #c5c2bc;
+}
+.weight-history li strong {
+  color: #f8f7f4;
+  font-weight: 600;
+}
 .weight-card .delta-up {
   color: #9de4c5;
 }
@@ -2194,6 +2180,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Make textarea a stable size so it doesn't change layout when toggled */
 .duke-form textarea {
   min-height: 64px;
+}
+
+.duke-form__time-note {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  color: #c5c2bc;
+}
+
+.duke-form__time-note p {
+  margin: 0;
+  font-weight: 600;
+  color: #f8f7f4;
+}
+
+.duke-form__time-note span {
+  font-size: 0.85rem;
+  color: #a7a39b;
 }
 
 /* Ensure meals card behaves the same as activity: the list grows and the form

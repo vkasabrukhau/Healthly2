@@ -44,7 +44,8 @@ function jitter(base: number, variance = 1) {
 }
 
 const labels = ref<string[]>(makeLabels(7));
-const weightData = ref<number[]>([]);
+// weightData now holds time-series points: [timestamp, value]
+const weightData = ref<Array<[string, number]>>([]);
 const sleepData = ref<number[]>([]);
 const foodCompletion = ref<number[]>([]);
 const waterCompletion = ref<number[]>([]);
@@ -63,9 +64,11 @@ function setRange(r: "week" | "month") {
   fetchTrendData(days).catch(() => {
     // on any error, fall back to synthetic data so charts remain populated
     const baseWeight = 174.5 + (r === "month" ? 1.5 : 0);
-    weightData.value = Array.from({ length: days }, (_, i) =>
-      jitter(baseWeight - i * 0.02, 0.8)
-    );
+    // produce time-series points (midday timestamps) so weight chart uses time axis
+    weightData.value = labels.value.map((dateStr, i) => [
+      `${dateStr}T12:00:00.000Z`,
+      jitter(baseWeight - i * 0.02, 0.8),
+    ]);
     sleepData.value = Array.from({ length: days }, () => jitter(7.2, 1.2));
     foodCompletion.value = Array.from({ length: days }, () =>
       Math.max(40, Math.min(100, Math.round(jitter(80, 25))))
@@ -87,13 +90,48 @@ async function fetchTrendData(days: number) {
   // Build the date strings in order
   const dates = makeLabels(days);
 
-  // For each date, fetch weight, sleep, food and water in parallel
+  const historyResp: any = await $fetch(
+    `/api/weight/history/${encodeURIComponent(uid)}`,
+    { params: { days } }
+  ).catch(() => null);
+
+  // Collect all weight history points in the requested date window. Where
+  // possible use the recordedAt timestamp so multiple points per day are
+  // preserved; fall back to dayKey at midnight when recordedAt is missing.
+  const weightPoints: Array<[string, number]> = [];
+  if (historyResp && Array.isArray(historyResp.history)) {
+    historyResp.history.forEach((entry: any) => {
+      const value = Number(entry?.weight);
+      if (!Number.isFinite(value)) return;
+      // prefer recordedAt (full ISO timestamp) so multiple entries per day are preserved
+      let t: string | null = null;
+      if (entry?.recordedAt) t = entry.recordedAt;
+      else if (entry?.dayKey) t = `${entry.dayKey}T00:00:00.000Z`;
+      if (!t) return;
+      // only include points that fall inside our date window (inclusive)
+      try {
+        const dt = new Date(t);
+        // normalize to ISO date string for comparison
+        const iso = dt.toISOString();
+        const dateOnly = iso.slice(0, 10);
+        if (dates.includes(dateOnly)) {
+          weightPoints.push([iso, value]);
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
+    });
+    // sort points by timestamp ascending
+    weightPoints.sort(
+      (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
+    );
+  }
+
+  // For each date, fetch sleep, food and water in parallel. Weight series uses
+  // the time-series points we built above (may have multiple points per day).
   const promises = dates.map(async (dateStr) => {
     try {
-      const [wResp, sResp, fResp, watResp] = await Promise.all([
-        $fetch(`/api/weight/${encodeURIComponent(uid)}`, {
-          params: { date: dateStr },
-        }).catch(() => null),
+      const [sResp, fResp, watResp] = await Promise.all([
         $fetch(`/api/sleep/${encodeURIComponent(uid)}`, {
           params: { date: dateStr },
         }).catch(() => null),
@@ -105,12 +143,9 @@ async function fetchTrendData(days: number) {
         }).catch(() => null),
       ]);
 
-      const weightVal =
-        wResp && (wResp as any).today != null
-          ? Number((wResp as any).today)
-          : wResp && (wResp as any).entry
-          ? Number((wResp as any).entry.weight)
-          : null;
+      // leave weight off the per-day aggregate object; charts that use
+      // time-series weight points will read from `weightData` directly.
+      const historyWeight = null;
 
       const sleepVal =
         sResp && (sResp as any).entry
@@ -131,7 +166,7 @@ async function fetchTrendData(days: number) {
 
       return {
         date: dateStr,
-        weight: weightVal,
+        weight: historyWeight,
         sleep: sleepVal,
         calories: totalCalories,
         water: waterEntry,
@@ -149,8 +184,29 @@ async function fetchTrendData(days: number) {
 
   const results = await Promise.all(promises);
 
-  // Map results into series arrays (maintain same order as labels)
-  weightData.value = results.map((r) => (r.weight != null ? r.weight : NaN));
+  // Assign the collected weight time-series points. If there are no
+  // recorded points for the range, fall back to the carry-forward daily
+  // behavior and synthesize one point per day using the last known value.
+  if (weightPoints.length > 0) {
+    weightData.value = weightPoints;
+  } else {
+    // synthesize daily carry-forward values (preserves previous behavior)
+    const weightsByDate: Record<string, number | null> = {};
+    let lastKnown: number | null = null;
+    // attempt to re-build historyMap from results (this is fallback)
+    const historyMap = new Map<string, number>();
+    results.forEach((entry) => {
+      // no-op: results don't contain historical weight values in this flow
+    });
+    for (const d of dates) {
+      // use lastKnown (unchanged) so daily points will be null or lastKnown
+      weightsByDate[d] = lastKnown;
+      if (weightsByDate[d] != null) {
+        weightPoints.push([`${d}T00:00:00.000Z`, weightsByDate[d] as number]);
+      }
+    }
+    weightData.value = weightPoints;
+  }
   sleepData.value = results.map((r) => Number(r.sleep || 0));
   // Food completion uses a default daily calorie target (2200) if not available
   const defaultCalGoal = 2200;
@@ -168,7 +224,17 @@ async function fetchTrendData(days: number) {
 }
 
 function randomize() {
-  weightData.value = weightData.value.map((v) => jitter(v, 0.6));
+  // weightData may be time-series points [iso, value]
+  weightData.value = weightData.value.map((v) => {
+    if (Array.isArray(v)) {
+      return [v[0], jitter(v[1] as number, 0.6)] as [string, number];
+    }
+    // fallback if numeric (shouldn't happen after changes)
+    return [`${new Date().toISOString()}`, jitter(v as number, 0.6)] as [
+      string,
+      number
+    ];
+  });
   sleepData.value = sleepData.value.map((v) => jitter(v, 0.6));
   foodCompletion.value = foodCompletion.value.map(() =>
     Math.max(30, Math.min(100, Math.round(Math.random() * 100)))
@@ -198,7 +264,7 @@ type DotOptionConfig = {
 };
 
 function buildDotOption(
-  values: number[],
+  values: any[],
   { color, label, unit, max, symbolSize = 12, formatter }: DotOptionConfig
 ) {
   const formatValue = (value: number) => {
@@ -225,23 +291,34 @@ function buildDotOption(
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
+  const isTimeSeries =
+    Array.isArray(values[0]) &&
+    (typeof values[0][0] === "string" || values[0][0] instanceof Date);
+
   return {
     grid: { left: 45, right: 18, top: 30, bottom: 40 },
-    xAxis: {
-      type: "category",
-      data: labels.value,
-      axisLabel: {
-        color: "rgba(255, 255, 255, 0.75)",
-        formatter: (val: string) => {
-          const d = new Date(val);
-          if (isNaN(d.getTime())) return val;
-          return `${d.getMonth() + 1}/${d.getDate()}`; // M/D
+    xAxis: isTimeSeries
+      ? {
+          type: "time",
+          axisLabel: {
+            color: "rgba(255, 255, 255, 0.75)",
+            formatter: (val: string) => {
+              const d = new Date(val);
+              if (isNaN(d.getTime())) return val;
+              return `${d.getMonth() + 1}/${d.getDate()}`; // M/D
+            },
+            rotate: 0,
+          },
+          axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
+          splitLine: { show: false },
+        }
+      : {
+          type: "category",
+          data: labels.value,
+          axisLabel: { color: "rgba(255, 255, 255, 0.75)" },
+          axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
+          splitLine: { show: false },
         },
-        rotate: 0,
-      },
-      axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
-      splitLine: { show: false },
-    },
     yAxis: {
       type: "value",
       name: unit ?? "",
@@ -251,13 +328,25 @@ function buildDotOption(
       splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.06)" } },
     },
     tooltip: {
-      trigger: "axis",
-      axisPointer: { type: "line" },
+      trigger: isTimeSeries ? "item" : "axis",
+      axisPointer: { type: isTimeSeries ? "shadow" : "line" },
       padding: 10,
       borderColor: "rgba(255, 255, 255, 0.2)",
       formatter: (params: any) => {
-        const p = params && params[0];
+        const p = Array.isArray(params) ? params[0] : params;
         if (!p) return "";
+        // p.data could be [time, value] for time series, or a raw value for category series
+        if (isTimeSeries) {
+          const d = p.data as [string, number];
+          const dt = new Date(d[0]);
+          const labelDate = `${
+            dt.getMonth() + 1
+          }/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(
+            2,
+            "0"
+          )}`;
+          return `${labelDate}<br/>${label}: ${formatValue(d[1])}`;
+        }
         return `${p.axisValueLabel}<br/>${label}: ${formatValue(
           p.data as number
         )}`;

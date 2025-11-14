@@ -18,6 +18,35 @@ export type MealRow = {
 
 let cachedMeals: MealRow[] | null = null;
 
+export const normalizeMealKey = (value?: string | null) =>
+  (value || "")
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+export function findMealMatchByName(name: string | undefined, meals: MealRow[]) {
+  if (!name) return null;
+  const target = normalizeMealKey(name);
+  if (!target) return null;
+  return (
+    meals.find((row) => normalizeMealKey(row.item_name) === target) ||
+    meals.find((row) => target.includes(normalizeMealKey(row.item_name))) ||
+    meals.find((row) => normalizeMealKey(row.item_name).includes(target)) ||
+    null
+  );
+}
+
+const toNumber = (input: any) => {
+  if (typeof input !== "string") {
+    const num = Number(input);
+    return Number.isFinite(num) ? num : 0;
+  }
+  const cleaned = input.replace(/[^0-9.\-]/g, "");
+  if (!cleaned.length) return 0;
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : 0;
+};
+
 function parseCsvLine(line: string) {
   const values: string[] = [];
   let current = "";
@@ -64,12 +93,12 @@ export async function loadMealsDataset() {
       item_name: row.item_name,
       serving_size: row.serving_size,
       ingredients: row.ingredients,
-      calories: Number(row.Calories) || Number(row.kcal_est) || 0,
-      fat_g: Number(row["Total Fat"]) || Number(row.fat_g) || 0,
-      carb_g: Number(row["Total Carbohydrate"]) || Number(row.carb_g) || 0,
-      protein_g: Number(row.Protein) || Number(row.protein_g) || 0,
-      sugar_g: Number(row["Total Sugars"]) || Number(row.sugar_g) || 0,
-      sodium_mg: Number(row["Total Sodium"]) || Number(row.sodium_mg) || 0,
+      calories: toNumber(row.Calories ?? row.kcal_est),
+      fat_g: toNumber(row["Total Fat"] ?? row.fat_g),
+      carb_g: toNumber(row["Total Carbohydrate"] ?? row.carb_g),
+      protein_g: toNumber(row.Protein ?? row.protein_g),
+      sugar_g: toNumber(row["Total Sugars"] ?? row.sugar_g),
+      sodium_mg: toNumber(row["Total Sodium"] ?? row.sodium_mg),
     });
   }
   cachedMeals = rows;

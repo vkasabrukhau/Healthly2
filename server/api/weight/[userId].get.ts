@@ -7,6 +7,13 @@ type WeightDoc = {
   weight: number;
 };
 
+type WeightHistoryDoc = {
+  userId: string;
+  dayKey: string;
+  weight: number;
+  recordedAt: Date;
+};
+
 export default defineEventHandler(async (event) => {
   const { userId } = event.context.params as { userId?: string };
   if (!userId) {
@@ -41,10 +48,28 @@ export default defineEventHandler(async (event) => {
   // fetch the user's current weight from their profile. Per product rule,
   // "weight for the day" should be the user's currentWeight, not historical
   // documents. If currentWeight is not set, fall back to any entry for today.
+  const historyCollection = await getCollection<WeightHistoryDoc>(
+    "weight_history"
+  );
+  const historyDocs = await historyCollection
+    .find({ userId, dayKey })
+    .sort({ recordedAt: 1 })
+    .toArray();
+
   const users = await getCollection("user");
   const userDoc = await users.findOne({ userId });
+  const latestHistoryWeight = historyDocs.length
+    ? historyDocs[historyDocs.length - 1].weight
+    : null;
   const todayWeight =
-    (userDoc as any)?.currentWeight ?? (entry ? entry.weight : null);
+    (userDoc as any)?.currentWeight ??
+    latestHistoryWeight ??
+    (entry ? entry.weight : null);
 
-  return { today: todayWeight, entry, previous };
+  const history = historyDocs.map((doc) => ({
+    weight: doc.weight,
+    recordedAt: doc.recordedAt?.toISOString?.() ?? new Date().toISOString(),
+  }));
+
+  return { today: todayWeight, entry, previous, history };
 });

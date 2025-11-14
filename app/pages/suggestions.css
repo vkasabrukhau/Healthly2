@@ -199,6 +199,11 @@
   box-sizing: border-box;
   /* prevent cards from shrinking unpredictably */
   flex: 0 1 auto;
+  /* make cards taller so stats are visible without internal scrolling */
+  min-height: 560px;
+  height: auto; /* allow cards to grow if content requires */
+  max-height: none;
+  overflow: visible;
 }
 
 .result-card__header {
@@ -379,6 +384,10 @@
 
   .result-card__macros {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* reduce card height on small screens to avoid excessive vertical space */
+  .result-card {
+    min-height: 420px;
   }
 }
 

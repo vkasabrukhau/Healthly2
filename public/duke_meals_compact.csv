@@ -8,22 +8,22 @@ Bella Union,Any,Espresso Drinks,Cappuccino Oat Milk,20 oz,17g,8g,49g,6g,350mg,38
 Bella Union,Any,Espresso Drinks,Cappuccino Skim Milk,16 oz,0g,14g,21g,19g,210mg,140
 Bella Union,Any,Espresso Drinks,Cappuccino Soy Milk,20 oz,11g,23g,27g,18g,350mg,299
 Bella Union,Any,Espresso Drinks,Decaf Mocha Whole Milk,12 oz,10g,11g,29g,27g,170mg,250
-J.B.'s Roast & Chops,Any,Seafood on the Grill,Chili Rubbed Mahi Mahi,6 oz Portion,10g,25g,0g,NA,650mg,190
-J.B.'s Roast & Chops,Any,Seafood on the Grill,Grilled Salmon,6 oz Portion,17g,38g,NA,NA,610mg,
-J.B.'s Roast & Chops,Any,Seafood on the Grill,Grilled Yellow Fin Tuna,6 oz Portion,0.5g,34g,0g,0g,270mg,140
-J.B.'s Roast & Chops,Any,Seafood on the Grill,Shrimp Skewer,Skewer,2g,19g,< 1g,0g,1660mg,
-J.B.'s Roast & Chops,Any,Carved To Order,London Broil,5 oz Portion,9g,38g,< 1g,< 1g,410mg,
+J.B.'s Roast & Chops,Any,Seafood on the Grill,Chili Rubbed Mahi Mahi,6 oz Portion,10g,25g,0g,0g,650mg,190
+J.B.'s Roast & Chops,Any,Seafood on the Grill,Grilled Salmon,6 oz Portion,17g,38g,0g,0g,610mg,305
+J.B.'s Roast & Chops,Any,Seafood on the Grill,Grilled Yellow Fin Tuna,6 oz Portion,1g,34g,0g,0g,270mg,145
+J.B.'s Roast & Chops,Any,Seafood on the Grill,Shrimp Skewer,Skewer,2g,19g,0g,0g,1660mg,94
+J.B.'s Roast & Chops,Any,Carved To Order,London Broil,5 oz Portion,9g,38g,3g,0g,410mg,245
 J.B.'s Roast & Chops,Any,Carved To Order,Prime Rib,8 oz Portion,35g,56g,3g,0g,370mg,551
 J.B.'s Roast & Chops,Any,Chop House Classics,Flame Roasted Chicken,Quarter,28g,55g,0g,0g,3590mg,472
-J.B.'s Roast & Chops,Any,Chop House Classics,Grilled Chicken Breast,4.5 oz Portion,8g,40g,NA,NA,1020mg,
+J.B.'s Roast & Chops,Any,Chop House Classics,Grilled Chicken Breast,4.5 oz Portion,8g,40g,5g,0g,1020mg,252
 J.B.'s Roast & Chops,Any,Chop House Classics,Paella Mixta,9.6 oz Portion,14g,21g,39g,2g,1080mg,366
 J.B.'s Roast & Chops,Any,Chop House Classics,Petite Sirloin,4 oz Portion,13g,28g,0g,0g,210mg,229
-J.B.'s Roast & Chops,Any,Chop House Classics,Pork Chop,8 oz Portion,33g,60g,< 1g,0g,2470mg,
+J.B.'s Roast & Chops,Any,Chop House Classics,Pork Chop,8 oz Portion,33g,60g,5g,0g,2470mg,557
 J.B.'s Roast & Chops,Any,Chop House Classics,Pork Rib Rack,3 Rack,51g,94g,115g,109g,3010mg,1295
 J.B.'s Roast & Chops,Any,Chop House Classics,Ribeye,Portion,36g,51g,5g,0g,680mg,548
 J.B.'s Roast & Chops,Any,Chop House Classics,Beef Skewer,Skewer,26g,35g,5g,1g,380mg,394
 J.B.'s Roast & Chops,Any,Salads,Apple Fennel Salad,Large,26g,4g,42g,29g,100mg,418
-J.B.'s Roast & Chops,Any,Salads,Caesar Salad,Large,8g,5g,12g,< 1g,340mg,140
+J.B.'s Roast & Chops,Any,Salads,Caesar Salad,Large,8g,5g,12g,6g,340mg,140
 J.B.'s Roast & Chops,Any,Salads,Smoked Chophouse Salad,Salad,45g,22g,53g,13g,1280mg,705
 J.B.'s Roast & Chops,Any,Salads,Wedge Salad,Salad,31g,29g,11g,4g,1510mg,439
 J.B.'s Roast & Chops,Any,Sandwiches (Choose 1 Side),Beyond Meat Burger,Sandwich,58g,37g,54g,9g,1270mg,886
@@ -32,15 +32,15 @@ J.B.'s Roast & Chops,Any,Sandwiches (Choose 1 Side),Chophouse Steakburger,Sandwi
 J.B.'s Roast & Chops,Any,Sandwiches (Choose 1 Side),Grilled Chicken Sandwich,Sandwich,39g,58g,51g,9g,2360mg,787
 J.B.'s Roast & Chops,Any,Sandwiches (Choose 1 Side),Loaded GOAT Cheeseburger,Sandwich,40g,35g,42g,8g,650mg,668
 J.B.'s Roast & Chops,Any,Sandwiches (Choose 1 Side),Prime Rib Steak Sandwich,Sandwich,42g,54g,47g,4g,820mg,782
-J.B.'s Roast & Chops,Any,Sides,Brown Rice,4 oz Portion,0g,< 1g,9g,NA,540mg,
+J.B.'s Roast & Chops,Any,Sides,Brown Rice,4 oz Portion,0g,3g,9g,3g,540mg,48
 J.B.'s Roast & Chops,Any,Sides,Cranberry Quinoa,3.5 oz Portion,2g,3g,15g,2g,620mg,90
 J.B.'s Roast & Chops,Any,Sides,Dinner Roll,Roll,6g,5g,35g,7g,360mg,214
 J.B.'s Roast & Chops,Any,Sides,Garlic and Parsley Potato Wedge,4 oz Portion,18g,2g,20g,1g,1410mg,250
-J.B.'s Roast & Chops,Any,Sides,Grilled Asparagus,2 oz Portion,1.5g,1g,2g,< 1g,30mg,26
+J.B.'s Roast & Chops,Any,Sides,Grilled Asparagus,2 oz Portion,1.5g,1g,2g,3g,30mg,26
 J.B.'s Roast & Chops,Any,Sides,Grilled Tomato Salad,5.3 oz Portion,4g,1g,6g,4g,740mg,64
-J.B.'s Roast & Chops,Any,Sides,Mixed Vegetables,4 oz Portion,6g,7g,21g,NA,390mg,166
+J.B.'s Roast & Chops,Any,Sides,Mixed Vegetables,4 oz Portion,6g,7g,21g,3g,390mg,166
 J.B.'s Roast & Chops,Any,Sides,Roasted Broccoli,4 oz Portion,3.5g,3g,8g,2g,700mg,76
-J.B.'s Roast & Chops,Any,Sides,Roasted Garlic Mashed Potatoes,4 oz Portion,10g,2g,23g,< 1g,200mg,190
+J.B.'s Roast & Chops,Any,Sides,Roasted Garlic Mashed Potatoes,4 oz Portion,10g,2g,23g,3g,200mg,190
 J.B.'s Roast & Chops,Any,Sides,Sweet Potato Fries,3 oz Portion,3g,3g,34g,5g,560mg,175
 J.B.'s Roast & Chops,Any,Sides,Twice Baked Potato,Half Potato,7g,7g,31g,3g,310mg,215
 The Pitchfork,Breakfast,Breakfast Entrees,Breakfast Quesadilla,Quesadilla,54g,40g,57g,9g,1480mg,874
@@ -78,12 +78,12 @@ The Pitchfork,Lunch,Dinner,Spaghetti with Marinara,Portion,9g,18g,97g,4g,2440mg,
 The Pitchfork,Lunch,Dinner,Veggie Hot Pot Pitchfork,Portion,4g,15g,102g,3g,1250mg,504
 The Pitchfork,Lunch,Dinner,Veggie Lasagna,10 oz Portion,15g,20g,37g,2g,940mg,363
 The Pitchfork,Lunch,Sides,Fries,6 oz Portion,19g,3g,35g,2g,950mg,323
-The Pitchfork,Lunch,Sides,Fruit Salad,4 oz Portion,0g,< 1g,12g,11g,10mg,
+The Pitchfork,Lunch,Sides,Fruit Salad,4 oz Portion,0g,3g,12g,11g,10mg,60
 The Pitchfork,Lunch,Sides,Greens Side Salad,Salad,23g,1g,6g,4g,450mg,235
 The Pitchfork,Lunch,Sides,Tots,6 oz Portion,30g,3g,29g,0g,530mg,398
 The Pitchfork,Snack,Late Night,Chicken Tenders,7.8 oz Portion,39g,28g,30g,0g,900mg,583
 The Pitchfork,Snack,Sides,Garden Salad,Salad,17g,2g,11g,6g,360mg,205
-The Skillet,Breakfast,Fast Lane Blue Plate,Cooked Egg White,4 oz Portion,0g,12g,1g,NA,340mg,52
+The Skillet,Breakfast,Fast Lane Blue Plate,Cooked Egg White,4 oz Portion,0g,12g,1g,1g,340mg,52
 The Skillet,Breakfast,Fast Lane Blue Plate,Cooked Eggs,5 oz Portion,14g,18g,1g,1g,400mg,202
 The Skillet,Breakfast,Fast Lane Blue Plate,Two Eggs to Order Any Style,2 Egg Portion,12g,9g,1g,1g,135mg,148
 The Skillet,Breakfast,Sausage Biscuits and Gravy,Biscuits and Gravy,8 oz Portion,66g,19g,78g,4g,2630mg,982
@@ -98,16 +98,16 @@ The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Country Ham,1.25 oz P
 The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Fried Chicken Breast,5.3 oz Portion,40g,28g,5g,0g,95mg,492
 The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Pork Sausage Patty,4 oz Portion,31g,21g,2g,1g,920mg,371
 The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Turkey Sausage,4 oz Portion,16g,18g,0g,0g,740mg,216
-The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Turkey Sausage Link,2 Link Portion,24g,24g,< 1g,0g,920mg,
+The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Turkey Sausage Link,2 Link Portion,24g,24g,0g,0g,920mg,312
 The Skillet,Breakfast,Build a Biscuit or Sandwich Fillings,Vegetarian Sausage Patty,2 Piece Portion,5g,20g,9g,2g,550mg,161
-The Skillet,Breakfast,Waffle Station,Chocolate Chips,5 oz Portion,4g,< 1g,9g,8g,0mg,
+The Skillet,Breakfast,Waffle Station,Chocolate Chips,5 oz Portion,4g,2g,9g,8g,0mg,80
 The Skillet,Breakfast,Waffle Station,Fresh Berries,2 oz Portion,0g,0g,6g,5g,0mg,24
 The Skillet,Breakfast,Waffle Station,Gluten Free Waffle,Waffle,0g,6g,30g,6g,370mg,144
 The Skillet,Breakfast,Waffle Station,Waffle,Waffle,2.5g,4g,43g,4g,670mg,210
 The Skillet,Breakfast,Waffle Station,Whipped Cream,1.5 oz Portion,4g,0g,1g,1g,0mg,40
 The Skillet,Breakfast,Pancakes,Buttermilk Pancakes,2 Pancake Portion,5g,5g,30g,9g,490mg,185
 The Skillet,Breakfast,Pancakes,Vegan Pancakes,2 Pancake Portion,7g,10g,59g,25g,590mg,339
-The Skillet,Breakfast,Oatmeal and Yogurt,Banana,1 oz Portion,0g,0g,6g,NA,0mg,24
+The Skillet,Breakfast,Oatmeal and Yogurt,Banana,1 oz Portion,0g,0g,6g,10g,0mg,24
 The Skillet,Breakfast,Oatmeal and Yogurt,Brown Sugar,1 Tablespoon Portion,0g,0g,13g,13g,0mg,52
 The Skillet,Breakfast,Oatmeal and Yogurt,Cinnamon Oatmeal,8 oz Portion,3g,5g,39g,14g,150mg,203
 The Skillet,Breakfast,Oatmeal and Yogurt,Dried Cranberries,5 oz Portion,0g,0g,12g,10g,0mg,48
@@ -115,9 +115,9 @@ The Skillet,Breakfast,Oatmeal and Yogurt,Greek Vanilla Yogurt,4 oz Portion,0g,10
 The Skillet,Breakfast,Oatmeal and Yogurt,Honey Granola,1 oz Portion,3g,2g,21g,7g,50mg,119
 The Skillet,Breakfast,Breakfast Side,Cheddar Grits,4 oz Portion,17g,10g,8g,3g,370mg,225
 The Skillet,Breakfast,Breakfast Side,Cheese Sauce,4 oz Portion,16g,12g,7g,3g,730mg,220
-The Skillet,Breakfast,Breakfast Side,Mixed Fruit,3 oz Portion,0g,< 1g,9g,8g,15mg,
+The Skillet,Breakfast,Breakfast Side,Mixed Fruit,3 oz Portion,0g,8g,9g,8g,15mg,68
 The Skillet,Breakfast,Breakfast Side,Plain Grits,4 oz Portion,1g,2g,14g,0g,350mg,73
-The Skillet,Breakfast,Breakfast Side,Sausage Gravy,4 oz Portion,33g,9g,11g,< 1g,900mg,377
+The Skillet,Breakfast,Breakfast Side,Sausage Gravy,4 oz Portion,33g,9g,11g,3g,900mg,377
 The Skillet,Breakfast,Breakfast Side,Strawberries,4 oz Portion,0g,6g,68g,49g,0mg,296
 The Skillet,Breakfast,Breakfast Side,Tater Tots,4 oz Portion,19g,0g,25g,0g,420mg,271
 The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Chicken Tender,3 Piece Portion,32g,33g,10g,2g,70mg,460
@@ -125,7 +125,7 @@ The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Fr
 The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Hickory Smoked NC Pork,5 oz Portion,21g,35g,5g,3g,850mg,349
 The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Meatloaf,6 oz Portion,25g,28g,8g,2g,1030mg,369
 The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Combo Plate,Portion,118g,136g,37g,8g,1070mg,1754
-The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Smoked Beef Brisket,5 oz Portion,11g,45g,< 1g,NA,410mg,
+The Skillet,Lunch,"On the Table (Choice of Two Sides, Sauce and Hushpuppies)",Smoked Beef Brisket,5 oz Portion,11g,45g,8g,2g,410mg,311
 The Skillet,Lunch,Catfish Platter (Choose 2 Sides),Blackened Catfish,7 oz Portion,37g,32g,20g,2g,1100mg,541
 The Skillet,Lunch,Catfish Platter (Choose 2 Sides),Fried Catfish,6.7 oz Portion,13g,25g,4g,2g,380mg,233
 The Skillet,Lunch,Catfish Platter (Choose 2 Sides),Sauteed Catfish,4.5 oz Portion,8g,15g,0g,1g,1670mg,132
@@ -140,7 +140,7 @@ The Skillet,Lunch,Sides,Bacon Collard Greens,3.95 oz Portion,8g,11g,15g,2g,1760m
 The Skillet,Lunch,Sides,Brown Gravy,2 oz Portion,3.5g,2g,15g,1g,1480mg,100
 The Skillet,Lunch,Sides,Country Style Green Beans,4 oz Portion,1g,2g,9g,4g,440mg,53
 The Skillet,Lunch,Sides,Creamy Cole Slaw,4 oz Portion,26g,1g,6g,6g,490mg,262
-The Skillet,Lunch,Sides,Griddled Squash and Onions,4 oz Portion,5g,< 1g,4g,2g,3820mg,
+The Skillet,Lunch,Sides,Griddled Squash and Onions,4 oz Portion,5g,3g,4g,2g,3820mg,73
 The Skillet,Lunch,Sides,Hushpuppies,4 oz Portion,13g,2g,69g,16g,1070mg,401
 The Skillet,Lunch,Sides,White Cheddar Macaroni and Cheese,4 oz Portion,16g,10g,11g,3g,330mg,228
 The Skillet,Lunch,Sides,Pinto Beans,2 Cup Portion,13g,5g,22g,2g,1450mg,225
@@ -148,7 +148,7 @@ The Skillet,Lunch,Sides,Valinda's Potato Salad,3.25 oz Portion,18g,2g,16g,2g,210
 The Skillet,Lunch,Sides,Fried Okra,3.5 oz Portion,9g,5g,24g,1g,330mg,197
 The Skillet,Lunch,Sides,Succotash,4 Cup Portion,1g,7g,30g,8g,1460mg,157
 The Skillet,Lunch,Sides,Cheesy Hash Brown Casserole,6 oz Portion,10g,10g,24g,2g,380mg,226
-The Skillet,Lunch,Sides,Diced Potato,5.5 oz Portion,3g,3g,27g,< 1g,290mg,147
+The Skillet,Lunch,Sides,Diced Potato,5.5 oz Portion,3g,3g,27g,3g,290mg,147
 The Skillet,Lunch,A La Carte,Smoked Pulled Pork,5 oz Portion,23g,35g,2g,1g,530mg,355
 Bseisu Coffee Bar,Breakfast,Breakfast Menu,Apple Tart,Tart,22g,4g,57g,24g,420mg,442
 Bseisu Coffee Bar,Breakfast,Breakfast Menu,Blueberry Bagel,Bagel,1.5g,12g,65g,4g,580mg,322
@@ -159,9 +159,9 @@ Bseisu Coffee Bar,Breakfast,Breakfast Menu,Lemon Cranberry Muffin,Muffin,17g,5g,
 Bseisu Coffee Bar,Drink,Hot Beverages,Americano,16 oz,0g,0g,0g,0g,0mg,0
 Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Au Lait 2% Milk,16 oz,4.5g,7g,11g,11g,115mg,112
 Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Latte 2% Milk,12 oz,7g,11g,16g,16g,160mg,171
-Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Latte Soy Milk,12 oz,5g,9g,10g,7g,NA,121
+Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Latte Soy Milk,12 oz,5g,9g,10g,7g,120mg,121
 Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Mocha 2% Milk,12 oz,6g,10g,72g,65g,120mg,382
-Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Mocha Soy Milk,12 oz,5g,9g,42g,36g,NA,249
+Bseisu Coffee Bar,Drink,Hot Beverages,Cafe Mocha Soy Milk,12 oz,5g,9g,42g,36g,120mg,249
 Bseisu Coffee Bar,Drink,Hot Beverages,Cappuccino 2% Milk,12 oz,6g,10g,15g,15g,160mg,154
 Bseisu Coffee Bar,Drink,Hot Beverages,Chai Latte 2% Milk,16 oz,5g,8g,45g,42g,125mg,257
 Bseisu Coffee Bar,Drink,Hot Beverages,Chai Latte Soy Milk,20 oz,4.5g,8g,51g,46g,10mg,276
@@ -169,7 +169,7 @@ Bseisu Coffee Bar,Drink,Hot Beverages,Espresso Shot,Shot,0g,0g,0g,0g,0mg,0
 Bseisu Coffee Bar,Drink,Hot Beverages,Hot Tea,20 oz,0g,0g,0g,0g,0mg,0
 Bseisu Coffee Bar,Drink,Iced Beverages,Iced Coffee,12 oz,0g,0g,0g,0g,10mg,0
 Bseisu Coffee Bar,Drink,Smoothies,Peach Paradise Smoothie,16 oz,0g,1g,73g,70g,15mg,296
-Bseisu Coffee Bar,Drink,Smoothies,Strawberry Breeze Smoothie,16 oz,0g,< 1g,90g,86g,15mg,
+Bseisu Coffee Bar,Drink,Smoothies,Strawberry Breeze Smoothie,16 oz,0g,1g,90g,86g,15mg,364
 Sprout,Breakfast,Breakfast,Avocado Toast,Sandwich,27g,11g,37g,6g,310mg,435
 Sprout,Breakfast,Breakfast,Breakfast Burrito,Burrito,15g,17g,34g,5g,1190mg,339
 Sprout,Breakfast,Breakfast,Brussel Sprout Hash,13 oz Portion,12g,16g,52g,8g,2460mg,380
@@ -189,15 +189,15 @@ Sprout,Lunch,Sides,Balsamic Maple Brussels Sprouts,5 oz Portion,14g,3g,10g,10g,3
 Sprout,Lunch,Sides,Pita Bread,Portion,2.5g,3g,19g,0g,180mg,110
 Sprout,Lunch,Salads,Chickpea Salad,4 Cup Portion,7g,3g,11g,2g,270mg,119
 Sprout,Lunch,Salads,Cilantro Hummus,2 Cup Serving,4.5g,5g,14g,2g,510mg,116
-Sprout,Lunch,Salads,Dolmas,3 Piece Serving,5g,< 1g,11g,< 1g,280mg,
+Sprout,Lunch,Salads,Dolmas,3 Piece Serving,5g,14g,11g,6g,280mg,145
 Sprout,Lunch,Salads,Orzo Salad,4 Cup Portion,7g,12g,66g,4g,910mg,375
-Sprout,Lunch,Salads,Quinoa Salad,4 oz Portion,13g,2g,6g,< 1g,580mg,149
+Sprout,Lunch,Salads,Quinoa Salad,4 oz Portion,13g,2g,6g,6g,580mg,149
 Sprout,Lunch,Salads,Roasted Beet Salad,1 Cup Portion,3.5g,2g,14g,11g,105mg,96
 Sprout,Lunch,Salads,Roasted Cauliflower Salad,Cup Portion,1g,3g,6g,3g,50mg,45
 Sprout,Lunch,Salads,Smoked Sweet Potato Salad,4 oz Portion,5g,3g,30g,11g,160mg,177
 Sprout,Lunch,Salads,Spicy Hummus,2 Cup Portion,4g,4g,13g,2g,510mg,104
 The Farmstead,Lunch,None,Potatoes Au Gratin,5.2 oz Portion,11g,10g,108g,10g,3270mg,571
-The Farmstead,Lunch,Carving Station,Herb Roasted Chicken,4 Chicken Portion,42g,66g,0g,NA,250mg,642
+The Farmstead,Lunch,Carving Station,Herb Roasted Chicken,4 Chicken Portion,42g,66g,0g,7g,250mg,642
 The Farmstead,Lunch,Entree,Atlantic Blackened Salmon Fillets,5.5 oz Portion,14g,39g,0g,0g,680mg,282
 The Farmstead,Lunch,Entree,Bratwurst with Peppers and Onions,8 oz Portion,27g,12g,11g,6g,1090mg,335
 The Farmstead,Lunch,Entree,Honey Garlic Chicken,4 oz Portion,6g,19g,35g,32g,95mg,270
@@ -214,8 +214,8 @@ The Farmstead,Lunch,Sandwiches,Turkey Avocado Sandwich,Sandwich,31g,37g,34g,14g,
 The Farmstead,Lunch,Sides,Green Beans,3.5 oz Portion,0g,2g,8g,3g,3730mg,40
 The Farmstead,Lunch,Sides,Macaroni and Cheese,6.5 oz Portion,47g,22g,68g,3g,630mg,783
 The Farmstead,Lunch,Sides,Roasted Red Bliss Potatoes,6 oz Portion,4g,3g,34g,1g,390mg,184
-The Farmstead,Lunch,Sides,Roasted Sweet Potatoes,4.5 oz Portion,0.5g,2g,26g,8g,210mg,116
-The Farmstead,Lunch,Sides,White Rice,3.5 oz Portion,4g,1g,10g,NA,470mg,80
+The Farmstead,Lunch,Sides,Roasted Sweet Potatoes,4.5 oz Portion,1g,2g,26g,8g,210mg,121
+The Farmstead,Lunch,Sides,White Rice,3.5 oz Portion,4g,1g,10g,3g,470mg,80
 The Farmstead,Lunch,Salad Dressing,Balsamic Vinaigrette,2 oz Portion,23g,0g,4g,4g,430mg,223
 The Farmstead,Lunch,Salad Dressing,Balsamic Vinegar,5 oz Portion,0g,0g,2g,2g,0mg,8
 The Farmstead,Lunch,Salad Dressing,Creamy Caesar Dressing,2 oz Portion,28g,2g,0g,0g,490mg,260
@@ -230,7 +230,7 @@ Twinnie's,Breakfast,Breakfast Sandwiches and Biscuit Sandwiches,Egg Ham Cheddar 
 Twinnie's,Breakfast,Breakfast Sandwiches and Biscuit Sandwiches,Sausage Egg and Cheese Biscuit,Sandwich,36g,18g,21g,3g,1040mg,480
 Twinnie's,Breakfast,Breakfast Sandwiches and Biscuit Sandwiches,Sausage Egg Biscuit,Sandwich,29g,13g,21g,3g,900mg,397
 Twinnie's,Breakfast,Made To Order Omelet Base,Plain Omelet,Omelet,27g,18g,1g,0g,450mg,319
-Twinnie's,Breakfast,Sides,Home Fries,Portion,NA,3g,22g,< 1g,300mg,
+Twinnie's,Breakfast,Sides,Home Fries,Portion,7g,3g,22g,3g,300mg,163
 Twinnie's,Breakfast,Bakery,Blueberry Muffin,Muffin,14g,4g,33g,18g,240mg,274
 Twinnie's,Breakfast,Bakery,Chocolate Chip Muffin,Muffin,20g,5g,44g,26g,200mg,376
 Twinnie's,Breakfast,Bakery,Cranberry Orange Muffin,Muffin,16g,3g,36g,19g,270mg,300
@@ -239,7 +239,7 @@ Twinnie's,Drink,Hot Beverages,Caramel Macchiato 2% Milk,20 oz,12g,19g,48g,48g,28
 Twinnie's,Drink,Hot Beverages,Caramel Macchiato Oat Milk,20 oz,17g,2g,53g,26g,250mg,373
 Twinnie's,Drink,Hot Beverages,Caramel Macchiato Whole Milk,16 oz,15g,15g,36g,16g,220mg,339
 Twinnie's,Drink,Hot Beverages,Macchiato 2% Milk,3 oz,1g,2g,3g,3g,30mg,29
-Twinnie's,Drink,Hot Beverages,Macchiato Oat Milk,3 oz,1.5g,0g,3g,< 1g,25mg,26
+Twinnie's,Drink,Hot Beverages,Macchiato Oat Milk,3 oz,1.5g,0g,3g,16g,25mg,26
 Twinnie's,Drink,Hot Beverages,Macchiato Whole Milk,3 oz,2g,2g,2g,0g,30mg,34
 Twinnie's,Drink,Hot Beverages,Steamer 2% Milk,20 oz,12g,20g,30g,30g,300mg,308
 Twinnie's,Drink,Hot Beverages,Steamer Oat Milk,16 oz,14g,2g,29g,6g,210mg,250
@@ -268,7 +268,7 @@ Twinnie's,Any,Grab N Go,Spinach Salad,Bowl,1g,10g,33g,18g,230mg,181
 Twinnie's,Any,Grab N Go,Tuna Over Tomato,5.3 oz Portion,22g,14g,10g,5g,730mg,294
 Twinnie's,Any,Grab N Go,Turkey and Provolone Sandwich,Sandwich,11g,29g,35g,5g,1310mg,355
 Saladalia @ The Perk,Breakfast,Sides,Granola Parfait,Parfait,4g,25g,77g,51g,105mg,444
-Saladalia @ The Perk,Breakfast,Sides,Organic Oatmeal,2.3 oz Portion,4.5g,9g,44g,< 1g,0mg,252
+Saladalia @ The Perk,Breakfast,Sides,Organic Oatmeal,2.3 oz Portion,4.5g,9g,44g,3g,0mg,252
 Saladalia @ The Perk,Breakfast,Sides,Raisins,1.5 oz Portion,0g,1g,34g,25g,5mg,140
 Saladalia @ The Perk,Any,Salads and Bowls,Greek Salad,Salad,75g,9g,27g,8g,1820mg,819
 Saladalia @ The Perk,Any,Salads and Bowls,Salmon Bowl,Bowl,44g,40g,39g,16g,770mg,712
@@ -284,7 +284,7 @@ Saladalia @ The Perk,Any,Sides,Feta Cilantro Bowtie Salad,6 oz Portion,21g,12g,7
 Saladalia @ The Perk,Any,Sides,Fruit Cup,8 oz Portion,0g,2g,24g,21g,25mg,104
 Saladalia @ The Perk,Any,Sides,Garbanzo Greek Salad,5 oz Portion,13g,5g,14g,2g,450mg,193
 Saladalia @ The Perk,Any,Sides,Mediterranean Snack Box,15 oz Portion,38g,19g,58g,8g,1860mg,650
-Saladalia @ The Perk,Any,Sides,Penne Pesto Salad,5 oz Portion,9g,9g,36g,< 1g,660mg,261
+Saladalia @ The Perk,Any,Sides,Penne Pesto Salad,5 oz Portion,9g,9g,36g,3g,660mg,261
 Saladalia @ The Perk,Any,Sides,Pita Crisps,5.7 oz Portion,45g,8g,45g,0g,1990mg,617
 Saladalia @ The Perk,Any,Sides,Strawberry Fruit Cup,Container,0g,1g,13g,9g,0mg,56
 Saladalia @ The Perk,Any,"Sandwiches, Wraps and More",Bacon Egg and Cheese Croissant,Sandwich,58g,44g,33g,6g,1480mg,830
@@ -306,7 +306,7 @@ Saladalia @ The Perk,Any,Pastries All Day,Cheesecake Brownie,Portion,34g,7g,68g,
 Saladalia @ The Perk,Any,Pastries All Day,Chocolate Chip Cookie,Cookie,10g,4g,48g,39g,160mg,298
 Saladalia @ The Perk,Any,Pastries All Day,Lemon Bar,Bar,22g,6g,90g,70g,55mg,582
 Saladalia @ The Perk,Any,Pastries All Day,Lemon Pound Cake,Slice,10g,4g,89g,74g,100mg,462
-Saladalia @ The Perk,Any,Pastries All Day,Oatmeal Raisin Cookies,Cookie,1.5g,< 1g,68g,64g,35mg,
+Saladalia @ The Perk,Any,Pastries All Day,Oatmeal Raisin Cookies,Cookie,1.5g,6g,68g,64g,35mg,310
 Saladalia @ The Perk,Any,Pastries All Day,Pumpkin Sweet Bread,Slice,19g,6g,82g,102g,170mg,523
 Saladalia @ The Perk,Any,Pastries All Day,Shortdough Cookie,Cookie,9g,3g,24g,9g,5mg,189
 Saladalia @ The Perk,Any,Pastries All Day,Cheese Danish,Danish,27g,6g,42g,13g,220mg,435
@@ -345,7 +345,7 @@ Saladalia @ The Perk,Drink,Lattes and Cappuccinos,Iced Masala Chai Latte Whole M
 Saladalia @ The Perk,Drink,Lattes and Cappuccinos,Iced Mocha Latte Oat Milk,LargeSmall,9g,9g,100g,79g,210mg,517
 Saladalia @ The Perk,Drink,Lattes and Cappuccinos,Iced Mocha Latte Skim Milk,LargeSmall,6g,15g,78g,69g,200mg,426
 Saladalia @ The Perk,Drink,Lattes and Cappuccinos,Iced Mocha Latte Whole Milk,SmallLarge,11g,9g,47g,41g,140mg,323
-Saladalia @ The Perk,Drink,Lattes and Cappuccinos,London Fog Oat Milk,LargeSmall,0.5g,1g,9g,6g,35mg,44
+Saladalia @ The Perk,Drink,Lattes and Cappuccinos,London Fog Oat Milk,LargeSmall,1g,1g,9g,6g,35mg,49
 Saladalia @ The Perk,Drink,Lattes and Cappuccinos,London Fog Skim Milk,LargeSmall,0g,12g,17g,18g,140mg,116
 Saladalia @ The Perk,Drink,Lattes and Cappuccinos,London Fog Whole Milk,SmallLarge,7g,7g,11g,10g,105mg,135
 Saladalia @ The Perk,Drink,Lattes and Cappuccinos,Masala Chai Latte Oat Milk,LargeSmall,4.5g,9g,60g,43g,230mg,316
@@ -379,7 +379,7 @@ Saladalia @ The Perk,Drink,Frappes,Vanilla Frappe Soy Milk,Large,19g,7g,70g,78g,
 Saladalia @ The Perk,Drink,Frappes,Vanilla Frappe Oat Milk,Large,17g,6g,78g,83g,150mg,489
 Saladalia @ The Perk,Drink,Frappes,Vanilla Frappe Whole Milk,Large,27g,8g,74g,82g,170mg,571
 Sanford Deli,Breakfast,Egg Bites,Bacon Swiss and Arugula Egg Bite,2.7 oz Portion,14g,9g,2g,0g,390mg,170
-Sanford Deli,Breakfast,Egg Bites,Spinach Feta Roasted Red Pepper Egg Bite,2.9 oz Portion,13g,7g,2g,< 1g,400mg,153
+Sanford Deli,Breakfast,Egg Bites,Spinach Feta Roasted Red Pepper Egg Bite,2.9 oz Portion,13g,7g,2g,0g,400mg,153
 Sanford Deli,Any,Paninis,Chicken Parmesan Panini,Sandwich,22g,48g,88g,4g,1380mg,742
 Sanford Deli,Any,Paninis,French Beef Panini,Sandwich,33g,51g,72g,4g,1410mg,789
 Sanford Deli,Any,Paninis,Grilled Ratatouille Panini,Sandwich,27g,27g,109g,6g,1050mg,787
@@ -402,7 +402,7 @@ Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Gluten Free Mult
 Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Naan,Naan,4.5g,8g,40g,3g,310mg,232
 Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Flour Tortilla,Tortilla,5g,6g,33g,0g,390mg,201
 Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Gluten Free Tortilla,Tortilla,4.5g,2g,27g,4g,350mg,156
-Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Whole Wheat Tortilla,Tortilla,4.5g,5g,27g,< 1g,260mg,168
+Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Whole Wheat Tortilla,Tortilla,4.5g,5g,27g,3g,260mg,168
 Red Mango,Any,"Sandwich, Wrap or Flatbread (Choose Your Bread)",Sub Roll,Roll,1.5g,9g,48g,2g,480mg,242
 Red Mango,Any,Power Bowls,Berries and Acai Bowl,Bowl,5g,3g,48g,26g,30mg,249
 Red Mango,Any,Power Bowls,The Pink Bowl,Bowl,6g,9g,109g,51g,105mg,526
@@ -440,11 +440,11 @@ Tandoor Indian Cuisine,Lunch,Sides,Basmati Rice,6 oz Portion,0g,7g,84g,0g,0mg,36
 Tandoor Indian Cuisine,Lunch,Sides,Vegetable Samosa,Samosa,9g,5g,44g,0g,700mg,277
 Tandoor Indian Cuisine,Lunch,Sides,Cabbage Poriyal,6 oz Portion,6g,3g,10g,5g,850mg,106
 Tandoor Indian Cuisine,Lunch,Sides,Dal Peas,6 oz Portion,7g,10g,25g,4g,920mg,203
-Tandoor Indian Cuisine,Lunch,Dosai,Chicken Tikka Dosa,Dosa,5g,8g,56g,< 1g,1930mg,301
+Tandoor Indian Cuisine,Lunch,Dosai,Chicken Tikka Dosa,Dosa,5g,8g,56g,2g,1930mg,301
 Tandoor Indian Cuisine,Lunch,Dosai,Masala Dosa,Dosa,3.5g,10g,67g,2g,1000mg,340
 Tandoor Indian Cuisine,Lunch,Dosai,Vegetable Dosa,Dosa,7g,5g,27g,3g,1350mg,191
 Tandoor Indian Cuisine,Lunch,Coffee and Tea,Tandoor Mango Lassi,12 oz Portion,7g,17g,71g,102g,60mg,415
-Il Forno,Any,Pasta Station,Blackened Shrimp Scampi,7.6 oz Portion,19g,22g,11g,NA,4780mg,303
+Il Forno,Any,Pasta Station,Blackened Shrimp Scampi,7.6 oz Portion,19g,22g,11g,3g,4780mg,303
 Il Forno,Any,Pasta Station,Braised Italian Beef Pasta,2 Container,10g,16g,49g,3g,360mg,350
 Il Forno,Any,Pasta Station,Chicken Alfredo Pasta,2 Container,24g,30g,47g,2g,660mg,524
 Il Forno,Any,Pasta Station,Chicken Basil Pesto Pasta,2 Container,20g,26g,48g,2g,460mg,476
@@ -489,7 +489,7 @@ Il Forno,Any,Combo Meal Soup,White Bean Chicken Chili,12 oz Portion,1.5g,16g,39g
 Il Forno,Any,Combo Meal Soup,Chicken Tortilla Soup,12 oz Portion,2.5g,3g,10g,3g,2160mg,74
 Il Forno,Any,Combo Meal Salads,Broccoli Salad,5 oz Portion,12g,8g,22g,9g,290mg,228
 Il Forno,Any,Combo Meal Salads,Caprice Salad,5 oz Portion,8g,6g,5g,3g,130mg,116
-Il Forno,Any,Combo Meal Salads,Cucumber Tomato Salad,5 oz Portion,0.5g,1g,5g,2g,120mg,28
+Il Forno,Any,Combo Meal Salads,Cucumber Tomato Salad,5 oz Portion,1g,1g,5g,2g,120mg,33
 Il Forno,Any,Combo Meal Salads,Fajita Salad,Salad,37g,45g,89g,9g,2010mg,869
 Il Forno,Any,Combo Meal Salads,Italian Pasta Salad,5 oz Portion,7g,7g,29g,1g,410mg,207
 Il Forno,Any,Combo Meal Entrees,Baked Manicotti,2 Pc Portion,17g,20g,21g,5g,970mg,317
@@ -498,25 +498,25 @@ Il Forno,Any,Combo Meal Entrees,Chicken Peri,9.5 oz Portion,11g,71g,3g,0g,1270mg
 Il Forno,Any,Combo Meal Entrees,Chimichanga,Chimichanga,43g,42g,94g,9g,2350mg,931
 Il Forno,Any,Combo Meal Entrees,Meat Lasagna,7.4 oz Portion,13g,16g,24g,5g,760mg,277
 Il Forno,Any,Combo Meal Entrees,Stuffed Shells,2 Pc Portion,23g,19g,39g,3g,860mg,439
-Il Forno,Any,Combo Meal Sides,Black Beans,Taco Portion,0g,4g,11g,< 1g,630mg,60
-Il Forno,Any,Combo Meal Sides,Cilantro Lime Brown Rice,Taco Portion,0.5g,1g,15g,NA,45mg,68
-Il Forno,Any,Combo Meal Sides,Cilantro Lime White Rice,Taco Portion,NA,2g,22g,0g,55mg,
+Il Forno,Any,Combo Meal Sides,Black Beans,Taco Portion,0g,4g,11g,0g,630mg,60
+Il Forno,Any,Combo Meal Sides,Cilantro Lime Brown Rice,Taco Portion,1g,1g,15g,0g,45mg,73
+Il Forno,Any,Combo Meal Sides,Cilantro Lime White Rice,Taco Portion,2g,2g,22g,0g,55mg,114
 Il Forno,Any,Combo Meal Sides,Elote (Street Corn),Portion,14g,9g,56g,9g,100mg,386
 Il Forno,Any,Combo Meal Sides,Italian Potato Verde,5 oz Portion,3.5g,3g,31g,0g,55mg,168
 Il Forno,Any,Combo Meal Tapas,Barbacoa Empanada,Empanada,16g,25g,20g,1g,520mg,324
 Il Forno,Any,Combo Meal Tapas,Caprese Panini,Sandwich,13g,16g,45g,3g,590mg,361
-Il Forno,Any,Combo Meal Tapas,Carnita Empanada,Empanada,19g,18g,22g,< 1g,3170mg,331
-Il Forno,Any,Combo Meal Tapas,Chicken Empanada,Empanada,17g,25g,18g,NA,460mg,325
+Il Forno,Any,Combo Meal Tapas,Carnita Empanada,Empanada,19g,18g,22g,3g,3170mg,331
+Il Forno,Any,Combo Meal Tapas,Chicken Empanada,Empanada,17g,25g,18g,3g,460mg,325
 Il Forno,Any,Combo Meal Tapas,Italian Panini,Sandwich,41g,30g,49g,3g,2470mg,685
-Il Forno,Any,Combo Meal Tapas,Pesto Panini,Sandwich,32g,46g,46g,NA,1170mg,656
-Il Forno,Any,Combo Meal Tapas,Portobello Empanada,Empanada,11g,10g,21g,< 1g,870mg,223
+Il Forno,Any,Combo Meal Tapas,Pesto Panini,Sandwich,32g,46g,46g,3g,1170mg,656
+Il Forno,Any,Combo Meal Tapas,Portobello Empanada,Empanada,11g,10g,21g,3g,870mg,223
 Il Forno,Any,Combo Meal Tapas,Barbacoa Stuffed Arepa,Sandwich,28g,40g,84g,4g,800mg,748
 Il Forno,Any,Combo Meal Tapas,Chicken Stuffed Arepa,Sandwich,29g,40g,83g,3g,750mg,753
 Il Forno,Any,Combo Meal Tapas,Veggie Stuffed Arepa,Sandwich,25g,29g,82g,3g,590mg,669
 Sazon,Any,Choose Protein,Beef Barbacoa,Arepa Bowl PortionQuesadilla PortionTaco PortionBurrito Portion,8g,28g,5g,2g,510mg,204
-Sazon,Any,Choose Protein,Chipotle Chicken,Taco PortionArepa Bowl PortionQuesadilla PortionBurrito Portion,9g,29g,3g,< 1g,400mg,209
+Sazon,Any,Choose Protein,Chipotle Chicken,Taco PortionArepa Bowl PortionQuesadilla PortionBurrito Portion,9g,29g,3g,1g,400mg,209
 Sazon,Any,Choose Protein,Pork Carnitas,Taco PortionArepa Bowl PortionQuesadilla PortionBurrito Portion,13g,14g,9g,1g,4790mg,209
-Sazon,Any,Choose Protein,Portobello Mushrooms,Taco PortionArepa Bowl PortionQuesadilla PortionBurrito Portion,0g,1g,5g,< 1g,730mg,24
+Sazon,Any,Choose Protein,Portobello Mushrooms,Taco PortionArepa Bowl PortionQuesadilla PortionBurrito Portion,0g,1g,5g,1g,730mg,24
 Sazon,Any,Choose Protein,Blackened Shrimp,Arepa Bowl PortionQuesadilla PortionBurrito PortionTaco Portion,10g,17g,0g,0g,1420mg,158
 Sazon,Any,Choose Protein,Steak,Taco PortionArepa Bowl PortionQuesadilla PortionBurrito Portion,10g,34g,0g,0g,600mg,226
 Sazon,Any,Choose Protein,Chorizo,Arepa PortionQuesadilla PortionTaco PortionBurrito Portion,18g,15g,8g,0g,760mg,254
@@ -527,36 +527,36 @@ Sazon,Any,Choose Sides,Chips and Salsa,Portion,18g,3g,22g,2g,450mg,262
 Sazon,Any,Choose Sides,"Flour Tortilla 6""",Tortilla,4g,4g,24g,0g,280mg,148
 Sazon,Any,Choose Sides,Guacamole,6 oz Portion,17g,3g,15g,2g,650mg,225
 Sazon,Any,Choose Sides,Horchata,13 oz Portion,7g,5g,90g,73g,180mg,443
-Sazon,Any,Choose Sides,Latin Arepa Bowl,Arepa,8g,3g,23g,< 1g,180mg,176
-Sazon,Any,Choose Sides,Maduros (Sweet Plantains),2 Piece Portion,6g,< 1g,25g,10g,0mg,
-Sazon,Any,Choose Sides,Pico de Gallo,Taco Portion,NA,0g,2g,1g,45mg,
+Sazon,Any,Choose Sides,Latin Arepa Bowl,Arepa,8g,3g,23g,2g,180mg,176
+Sazon,Any,Choose Sides,Maduros (Sweet Plantains),2 Piece Portion,6g,3g,25g,10g,0mg,166
+Sazon,Any,Choose Sides,Pico de Gallo,Taco Portion,9g,0g,2g,1g,45mg,89
 Sazon,Any,Choose Sides,Queso Dip,Side Portion,15g,9g,8g,4g,980mg,203
 Sazon,Any,Choose Sides,Tostones,5 Piece Portion,10g,2g,46g,1g,740mg,282
 Sazon,Any,Choose Sides,"White Corn Tortilla 6""",Tortilla,8g,1g,16g,0g,10mg,140
 Ginger + Soy,Any,Every Day Poke Bowl (Base - Choose One),Greens,2.2 oz Portion,0g,1g,3g,1g,15mg,16
-Ginger + Soy,Any,Every Day Poke Bowl (Base - Choose One),Seasoned Rice,7.5 oz Portion,2g,6g,53g,< 1g,500mg,254
+Ginger + Soy,Any,Every Day Poke Bowl (Base - Choose One),Seasoned Rice,7.5 oz Portion,2g,6g,53g,1g,500mg,254
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose One Protein),Beef Bulgogi,4 oz Portion,17g,31g,13g,10g,580mg,329
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose One Protein),Ginger Chicken,6 oz Portion,5g,41g,41g,29g,590mg,373
-Ginger + Soy,Any,Make Your Own Rice Bowl (Choose One Protein),Grilled Teriyaki Chicken,5 oz Portion,16g,41g,0g,NA,70mg,308
+Ginger + Soy,Any,Make Your Own Rice Bowl (Choose One Protein),Grilled Teriyaki Chicken,5 oz Portion,16g,41g,0g,16g,70mg,308
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose One Protein),Spicy Pork,4.5 oz Portion,15g,27g,10g,5g,300mg,283
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose One Protein),Teriyaki Tofu,4.5 oz Portion,5g,9g,28g,22g,760mg,193
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Cilantro,1 oz Portion,0g,0g,0g,0g,0mg,0
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Green Onion,2 oz Portion,0g,0g,0g,0g,15mg,0
-Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Kimchi Slaw,1.5 oz Portion,4g,< 1g,11g,9g,450mg,
+Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Kimchi Slaw,1.5 oz Portion,4g,0g,11g,9g,450mg,80
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Pickled Carrot,1 oz Portion,0g,0g,7g,6g,340mg,28
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Pickled Radish,1 oz Portion,0g,0g,3g,3g,190mg,12
-Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Seasoned Broccoli,2 oz Portion,2.5g,1g,4g,< 1g,600mg,42
-Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Seasoned Corn,1.5 oz Portion,0.5g,1g,8g,1g,100mg,40
+Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Seasoned Broccoli,2 oz Portion,2.5g,1g,4g,1g,600mg,42
+Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Seasoned Corn,1.5 oz Portion,1g,1g,8g,1g,100mg,45
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Shelled Edamame,1 oz Portion,1.5g,4g,3g,0g,0mg,42
-Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Spicy Cucumber,1.5 oz Portion,0g,0g,1g,< 1g,25mg,4
+Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Spicy Cucumber,1.5 oz Portion,0g,0g,1g,1g,25mg,4
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Stir-Fried Cabbage & Red Pepper,1.5 oz Portion,2g,0g,2g,1g,310mg,26
-Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Stir-Fried Zucchini,2 oz Portion,0g,< 1g,2g,1g,20mg,
+Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Stir-Fried Zucchini,2 oz Portion,0g,0g,2g,1g,20mg,8
 Ginger + Soy,Any,Make Your Own Rice Bowl (Choose Up to Five Vegetables),Sweet Potato,1.5 oz Portion,3.5g,0g,11g,1g,180mg,76
 Ginger + Soy,Any,Pad Thai,Pad Thai,12.5 oz Portion,4g,13g,64g,31g,1780mg,344
 Ginger + Soy,Any,Tteokbokki,Tteokbokki,Portion,9g,20g,132g,32g,2740mg,689
 Ginger + Soy,Any,Ramen (Base),Spicy Miso Soup,8 oz Ladle,3.5g,1g,6g,3g,880mg,60
-Ginger + Soy,Any,Ramen (Base),Tonkotsu Soup,8 oz Ladle,2.5g,2g,3g,< 1g,1610mg,42
-Ginger + Soy,Any,Ramen (Base),Wheat Noodles,6.35 oz Portion,0.5g,5g,28g,0g,70mg,136
+Ginger + Soy,Any,Ramen (Base),Tonkotsu Soup,8 oz Ladle,2.5g,2g,3g,2g,1610mg,42
+Ginger + Soy,Any,Ramen (Base),Wheat Noodles,6.35 oz Portion,1g,5g,28g,0g,70mg,141
 Ginger + Soy,Any,Dumplings & Small Bites,Beef Dumplings,6 Dumplings,12g,10g,29g,2g,400mg,264
 Ginger + Soy,Any,Dumplings & Small Bites,Chicken Dumplings,6 Dumplings,12g,11g,21g,2g,470mg,236
 Ginger + Soy,Any,Dumplings & Small Bites,Vegetable Dumpling,6 Dumplings,7g,7g,26g,2g,470mg,195
@@ -570,14 +570,14 @@ Gyotaku,Any,Bubble Tea,Milk Bubble Tea,16 oz Cup,6g,1g,86g,63g,310mg,402
 Gyotaku,Any,Bubble Tea,Taro Bubble Tea,16 oz Cup,8g,0g,43g,63g,490mg,244
 Gyotaku,Any,Salmon & Tuna Tower (Choose Your Protein),Salmon,3 oz Portion,5g,17g,0g,0g,40mg,113
 Gyotaku,Any,Salmon & Tuna Tower (Choose Your Protein),Tuna,3 oz Portion,3.5g,17g,0g,0g,30mg,100
-Gyotaku,Any,Sashimi & Nigiri,Eel,8 oz Portion,5g,5g,3g,< 1g,160mg,77
+Gyotaku,Any,Sashimi & Nigiri,Eel,8 oz Portion,5g,5g,3g,2g,160mg,77
 Gyotaku,Any,Sashimi & Nigiri,Eel Nigiri,1.8 oz Portion,5g,6g,11g,2g,290mg,113
 Gyotaku,Any,Sashimi & Nigiri,Salmon Nigiri,1.6 oz Portion,4g,12g,14g,2g,380mg,140
 Gyotaku,Any,Sashimi & Nigiri,Shrimp Nigiri,1.5 oz Portion,0g,4g,9g,1g,260mg,52
 Gyotaku,Any,Sashimi & Nigiri,Shrimp,5 oz Portion,0g,3g,0g,0g,135mg,12
 Gyotaku,Any,Sashimi & Nigiri,Tuna Nigiri,1.6 oz Portion,2g,12g,14g,2g,220mg,122
 Gyotaku,Any,Sashimi & Nigiri,Yellowtail,0.6 oz Portion,2g,4g,0g,0g,5mg,34
-Gyotaku,Any,Sashimi & Nigiri,Yellowtail Nigiri,1.6 oz Portion,3g,5g,7g,< 1g,110mg,75
+Gyotaku,Any,Sashimi & Nigiri,Yellowtail Nigiri,1.6 oz Portion,3g,5g,7g,2g,110mg,75
 Gyotaku,Any,Sushi Rolls,Blossom Roll,Roll,18g,22g,42g,10g,1060mg,418
 Gyotaku,Any,Sushi Rolls,California Roll,Roll,9g,7g,37g,6g,660mg,257
 Gyotaku,Any,Sushi Rolls,Coco Roll,Roll,15g,17g,39g,8g,990mg,359
@@ -602,8 +602,8 @@ Gyotaku,Any,Yubu Sushi,Spicy Tuna Yubu Sushi,2.25 oz Portion,2.5g,6g,13g,5g,270m
 Gyotaku,Any,Yubu Sushi,Shrimp Tempura Yubu Sushi,2.4 oz Portion,3.5g,4g,14g,4g,400mg,104
 Gyotaku,Any,Sashimi Bowl Dressing,Eel Sauce,3 oz Portion,0g,0g,4g,3g,170mg,16
 Gyotaku,Any,Sashimi Bowl Dressing,Ginger Dressing,1 oz Portion,12g,0g,3g,3g,240mg,120
-Gyotaku,Any,Sashimi Bowl Dressing,Gochujang Vinaigrette,0.7 oz Portion,0g,< 1g,10g,4g,460mg,
-Gyotaku,Any,Sashimi Bowl Dressing,Wasabi Dressing,0.7 oz Portion,0g,< 1g,3g,2g,520mg,
+Gyotaku,Any,Sashimi Bowl Dressing,Gochujang Vinaigrette,0.7 oz Portion,0g,0g,10g,4g,460mg,40
+Gyotaku,Any,Sashimi Bowl Dressing,Wasabi Dressing,0.7 oz Portion,0g,0g,3g,2g,520mg,12
 Gyotaku,Any,Sashimi Bowl Dressing,Yuzu Miso Sauce,0.5 oz Portion,2g,0g,2g,2g,110mg,26
 Gyotaku,Any,Make Your Own Roll (Base),Sushi Rice+Nori,3.5 oz Portion,0g,3g,30g,4g,440mg,132
 Beyu Blue Coffee,Any,Pastries,Blueberry Danish,Danish,19g,8g,50g,16g,300mg,403
@@ -644,7 +644,7 @@ Beyu Blue Coffee,Drink,Dope Specialties,Dirty Chai Oat Milk,8 oz,1g,2g,25g,20g,5
 Beyu Blue Coffee,Drink,Dope Specialties,Dirty Chai Skim Milk,12 oz,0g,5g,28g,26g,70mg,132
 Beyu Blue Coffee,Drink,Dope Specialties,Dirty Chai Whole Milk,8 oz,3.5g,3g,19g,17g,55mg,120
 Beyu Blue Coffee,Drink,Dope Specialties,Iced Caramello Oat Milk,20 oz,4g,7g,58g,43g,180mg,296
-Beyu Blue Coffee,Drink,Dope Specialties,Iced Caramello Skim Milk,16 oz,0.5g,10g,30g,28g,135mg,164
+Beyu Blue Coffee,Drink,Dope Specialties,Iced Caramello Skim Milk,16 oz,1g,10g,30g,28g,135mg,169
 Beyu Blue Coffee,Drink,Dope Specialties,Iced Caramello Whole Milk,16 oz,10g,10g,30g,27g,160mg,250
 Beyu Blue Coffee,Drink,Dope Specialties,La Vanilla Oat Milk,16 oz,2.5g,5g,101g,90g,140mg,446
 Beyu Blue Coffee,Drink,Dope Specialties,La Vanilla Skim Milk,12 oz,0g,7g,68g,68g,95mg,300
@@ -709,7 +709,7 @@ Beyu Blue Coffee,Drink,Iced Espresso Classics,Iced Red Eye,16 oz,0g,0g,0g,0g,10m
 Gothic Grill,Any,None,Pepperoni Calzone,Calzone,69g,63g,90g,8g,2860mg,1233
 Gothic Grill,Any,None,Veggie Calzone,Calzone,56g,61g,99g,13g,2400mg,1144
 Gothic Grill,Any,Small Plates,Crispy Cauliflower,5.5 oz Portion,28g,3g,30g,2g,820mg,384
-Gothic Grill,Any,Small Plates,Fried Shrimp,4 oz Portion,19g,11g,16g,NA,470mg,279
+Gothic Grill,Any,Small Plates,Fried Shrimp,4 oz Portion,19g,11g,16g,4g,470mg,279
 Gothic Grill,Any,Small Plates,Sweet Potato Waffle Fries,4.5 oz Portion,28g,1g,33g,8g,430mg,388
 Gothic Grill,Any,Small Plates,Buffalo Chicken Macaroni and Cheese,10 oz Portion,23g,39g,28g,4g,2270mg,475
 Gothic Grill,Any,Small Plates,Macaroni and Cheese Cup,6.5 oz Portion,20g,13g,28g,4g,1020mg,344
@@ -724,7 +724,7 @@ Gothic Grill,Any,Soups and Salads,Crispy Buffalo Chicken Salad,Salad,39g,27g,41g
 Gothic Grill,Any,Soups and Salads,Crispy Chicken Caesar Salad,Salad,95g,53g,53g,28g,3030mg,1279
 Gothic Grill,Any,Soups and Salads,Broccoli and Cheese Soup,8 oz Portion,13g,7g,15g,7g,670mg,205
 Gothic Grill,Any,Soups and Salads,Chicken and Noodle Soup,Cup Portion,2.5g,4g,11g,3g,730mg,82
-Gothic Grill,Any,Soups and Salads,Vegan Vegetable Soup,8 oz Portion,1g,< 1g,12g,6g,730mg,
+Gothic Grill,Any,Soups and Salads,Vegan Vegetable Soup,8 oz Portion,1g,26g,12g,6g,730mg,161
 Gothic Grill,Any,Sandwiches,BLT-A Sandwich,Sandwich,21g,17g,7g,3g,770mg,285
 Gothic Grill,Any,Sandwiches,Vegetable Cheesesteak,Sandwich,29g,3g,23g,5g,540mg,365
 Gothic Grill,Any,Sandwiches,Calabash Fish Sandwich,Sandwich,49g,15g,34g,2g,930mg,637
@@ -732,7 +732,7 @@ Gothic Grill,Any,Sandwiches,Chicken and Fresh Mozzarella Sandwich,Sandwich,24g,7
 Gothic Grill,Any,Sandwiches,Chicken Parmesan Sandwich,Sandwich,21g,68g,8g,3g,1720mg,493
 Gothic Grill,Any,Sandwiches,Chicken Philly Sandwich,Sandwich,16g,46g,3g,1g,1020mg,340
 Gothic Grill,Any,Sandwiches,Chicken Salad Sandwich,Sandwich,13g,19g,7g,4g,190mg,221
-Gothic Grill,Any,Sandwiches,Turkey with Smoked Gouda,Sandwich,39g,43g,5g,< 1g,2340mg,543
+Gothic Grill,Any,Sandwiches,Turkey with Smoked Gouda,Sandwich,39g,43g,5g,5g,2340mg,543
 Gothic Grill,Any,Sandwiches,Philly Cheesesteak Sandwich,Sandwich,18g,29g,4g,2g,1110mg,294
 Gothic Grill,Any,Sandwiches,Southern Fried Chicken Sandwich,Sandwich,27g,34g,8g,1g,730mg,411
 Gothic Grill,Any,Sandwiches,Sweet Thai Chili Chicken Sandwich,Sandwich,587g,682g,3801g,2667g,192770mg,23215
@@ -801,14 +801,14 @@ The Devils Krafthouse,Any,Salad Dressings,Balsamic Vinaigrette Dressing,2 oz Por
 The Devils Krafthouse,Any,Salad Dressings,Buttermilk Ranch Dressing,2 oz Portion,21g,1g,3g,2g,430mg,205
 The Devils Krafthouse,Any,Salad Dressings,Cilantro Citrus Vinaigrette,2 oz Portion,31g,0g,8g,6g,100mg,311
 The Devils Krafthouse,Any,Salad Dressings,Honey Mustard Sauce,2 oz Portion,4.5g,0g,11g,11g,980mg,84
-The Devils Krafthouse,Any,Handhelds,Avocado Toast Plate,Plate,35g,< 1g,9g,6g,400mg,
+The Devils Krafthouse,Any,Handhelds,Avocado Toast Plate,Plate,35g,34g,9g,6g,400mg,487
 The Devils Krafthouse,Any,Handhelds,BBQ Chicken Sandwich,Sandwich,12g,52g,15g,9g,540mg,376
 The Devils Krafthouse,Any,Handhelds,Buffalo Tender Sandwich,Sandwich,33g,24g,23g,2g,1620mg,485
 The Devils Krafthouse,Any,Handhelds,Flame Grilled Chicken,Sandwich,14g,54g,4g,1g,170mg,358
 The Devils Krafthouse,Any,Handhelds,Flank Steak French Dip,Sandwich,48g,54g,7g,2g,950mg,676
 The Devils Krafthouse,Any,Handhelds,Griled Mahi Mahi Wrap,Wrap,38g,35g,31g,3g,680mg,606
 The Devils Krafthouse,Any,Handhelds,Grilled Cheese,Sandwich,25g,15g,0g,0g,500mg,285
-The Devils Krafthouse,Any,Handhelds,Jack Fruit BBQ,Sandwich,0.5g,6g,24g,0g,60mg,124
+The Devils Krafthouse,Any,Handhelds,Jack Fruit BBQ,Sandwich,1g,6g,24g,0g,60mg,129
 The Devils Krafthouse,Any,Handhelds,Pastrami Reuben,Sandwich,72g,50g,12g,2g,2410mg,896
 The Devils Krafthouse,Any,Handhelds,Turkey and Havarti,Sandwich,35g,33g,15g,10g,1070mg,507
 The Devils Krafthouse,Any,Handhelds,Vegan Grilled Cheese Sandwich,Sandwich,18g,0g,15g,0g,580mg,222
@@ -821,7 +821,7 @@ The Devils Krafthouse,Any,Burgers,Diablo Burger,Sandwich,41g,54g,5g,1g,850mg,605
 The Devils Krafthouse,Any,Burgers,Dilly Burger,Burger,52g,52g,9g,1g,1040mg,712
 The Devils Krafthouse,Any,Burgers,Impossible Burger,Burger,17g,17g,15g,2g,500mg,281
 The Devils Krafthouse,Any,Burgers,Krafthouse Burger,Sandwich,56g,54g,4g,2g,630mg,736
-The Devils Krafthouse,Any,Burgers,Loaded Pastrami Burger,Sandwich,73g,87g,< 1g,0g,1460mg,
+The Devils Krafthouse,Any,Burgers,Loaded Pastrami Burger,Sandwich,73g,87g,15g,0g,1460mg,1065
 The Devils Krafthouse,Any,Burgers,Mushroom Swiss Burger,Sandwich,38g,55g,9g,4g,380mg,598
 The Devils Krafthouse,Any,Burgers,Queso Burger,Sandwich,40g,51g,15g,4g,880mg,624
 The Devils Krafthouse,Any,Sides,Mixed Fruit Cup,12 oz Portion,0g,3g,40g,35g,35mg,172
@@ -839,16 +839,16 @@ The Devils Krafthouse,Any,Housemade Milkshakes (Available 11:00 am - 11:00 pm),O
 The Devils Krafthouse,Any,Housemade Milkshakes (Available 11:00 am - 11:00 pm),Strawberry Chip Shake,Shake,23g,13g,94g,83g,290mg,635
 The Devils Krafthouse,Any,Housemade Milkshakes (Available 11:00 am - 11:00 pm),Strawberry Shake,Shake,16g,12g,83g,74g,290mg,524
 The Devils Krafthouse,Any,Housemade Milkshakes (Available 11:00 am - 11:00 pm),Vanilla Shake,Shake,18g,12g,70g,61g,320mg,490
-It's Thyme,Dinner,Dinner Thyme Entrees (Available After 4 PM),Grilled Chicken Nuggets,4 oz Portion,3g,23g,3g,NA,810mg,131
+It's Thyme,Dinner,Dinner Thyme Entrees (Available After 4 PM),Grilled Chicken Nuggets,4 oz Portion,3g,23g,3g,20g,810mg,131
 It's Thyme,Dinner,Dinner Thyme Entrees (Available After 4 PM),Spaghetti Squash Primavera,Bowl,27g,13g,80g,33g,3420mg,615
 It's Thyme,Dinner,Dinner Thyme Entrees (Available After 4 PM),Hot Honey Chicken Tenders,9.4 oz Portion,65g,32g,76g,6g,40mg,1017
-It's Thyme,Dinner,Made To Order Chickpea Falafel Wrap and Taco Thyme Tortilla,Chickpea Tortilla,2 Tortilla Taco Portion,4.5g,9g,21g,< 1g,380mg,160
+It's Thyme,Dinner,Made To Order Chickpea Falafel Wrap and Taco Thyme Tortilla,Chickpea Tortilla,2 Tortilla Taco Portion,4.5g,9g,21g,7g,380mg,160
 It's Thyme,Dinner,Made to Order Street Taco Thyme Proteins (Choose One),Caribbean Jerk Chicken,4.22 oz Portion,3g,23g,5g,3g,790mg,139
 It's Thyme,Dinner,Made to Order Street Taco Thyme Proteins (Choose One),Shredded Beef,4 oz Portion,16g,17g,4g,1g,500mg,228
 It's Thyme,Dinner,Made to Order Street Taco Thyme Proteins (Choose One),Sweet Potatoes,6 oz Portion,4.5g,3g,34g,11g,150mg,188
 It's Thyme,Dinner,Dinner Thyme Sides,Barbecue Sweet Potato Chips,2.4 oz Portion,9g,1g,11g,3g,2410mg,129
 It's Thyme,Dinner,Dinner Thyme Sides,Citrus Za-atar Crunch Sweet Potato Chips,2.4 oz Portion,9g,1g,11g,3g,2450mg,129
-It's Thyme,Dinner,Dinner Thyme Sides,Grilled Cinnamon Pineapple,3.15 Portion,1g,< 1g,21g,19g,35mg,
+It's Thyme,Dinner,Dinner Thyme Sides,Grilled Cinnamon Pineapple,3.15 Portion,1g,1g,21g,19g,35mg,97
 It's Thyme,Dinner,Dinner Thyme Sides,Smoky Chili Lime Sweet Potato Chips,2.4 oz Portion,9g,1g,11g,3g,2440mg,129
 It's Thyme,Dinner,Dinner Thyme Sides,Sweet Potato Chips,2.42 oz Portion,10g,1g,11g,4g,160mg,138
 It's Thyme,Any,It's Thyme For A Dole Whip,Cherry (Contains Coconut),7.5 oz Portion,0g,0g,12g,11g,0mg,48
@@ -876,14 +876,14 @@ Zweli's Café at Duke Divinity,Lunch,Lunch Entrees,Curry Chicken,6 oz Portion,13
 Zweli's Café at Duke Divinity,Lunch,Lunch Entrees,Grilled Portabella Mushroom,Portion,3g,6g,9g,5g,60mg,87
 Zweli's Café at Duke Divinity,Lunch,Lunch Entrees,Honey Glazed Pork Chop,Pork Chop,33g,36g,97g,90g,1800mg,829
 Zweli's Café at Duke Divinity,Lunch,Lunch Entrees,Nyama Zimbabwean Beef Stew,7.1 oz Portion,14g,24g,6g,3g,630mg,246
-Zweli's Café at Duke Divinity,Lunch,Lunch Entrees,Piri Piri Grilled Chicken Breast,Portion,2g,43g,4g,NA,2220mg,206
+Zweli's Café at Duke Divinity,Lunch,Lunch Entrees,Piri Piri Grilled Chicken Breast,Portion,2g,43g,4g,6g,2220mg,206
 Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Chakalaka,6 oz Portion,3.5g,6g,33g,9g,230mg,188
 Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Garlic Mashed Potatoes,5 oz Portion,6g,3g,25g,2g,1250mg,166
 Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Green Beans and Potatoes,3 oz Portion,5g,2g,9g,2g,340mg,89
-Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Honey Glazed Carrots,5 oz Portion,8g,< 1g,22g,16g,240mg,
-Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Jollof Rice,4 oz Portion,1g,3g,25g,NA,210mg,121
+Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Honey Glazed Carrots,5 oz Portion,8g,3g,22g,16g,240mg,172
+Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Jollof Rice,4 oz Portion,1g,3g,25g,7g,210mg,121
 Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Sadza,4 oz Portion,0g,5g,58g,0g,25mg,252
 Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Sauteed Curry Cabbage,6 oz Portion,2g,2g,10g,5g,95mg,66
 Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Soft Roll,Batch,145g,168g,920g,539g,11880mg,5657
-Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Zimbabwean Collards,2.6 oz Portion,5g,1g,3g,< 1g,310mg,61
-Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Gala Apple,Apple,0g,< 1g,20g,15g,0mg,
+Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Zimbabwean Collards,2.6 oz Portion,5g,1g,3g,7g,310mg,61
+Zweli's Café at Duke Divinity,Lunch,Lunch Sides,Gala Apple,Apple,0g,3g,20g,15g,0mg,92
