@@ -1,3 +1,4 @@
+import { defineEventHandler, readBody, createError } from "h3";
 import { getCollection } from "../utils/mongo";
 import { adjustMacrosForWorkouts } from "../utils/nutrition";
 import { requireAuthenticatedUser } from "./utils/require-auth";
@@ -21,16 +22,13 @@ type ActivityDoc = {
 };
 
 const VALID_STATUSES = new Set(["Completed", "Planned"]);
-
 const KG_PER_LB = 0.45359237;
 
-function parseDurationMinutes(duration: string) {
-  if (!duration) return 0;
-  const numeric = Number(duration);
-  if (!Number.isNaN(numeric)) return numeric;
-  const match = duration.match(/(\d+(?:\.\d+)?)/);
-  if (match) {
-    return Number(match[1]);
+function parseDurationMinutes(duration?: string | number | null) {
+  if (typeof duration === "number" && !Number.isNaN(duration)) return duration;
+  if (typeof duration === "string") {
+    const match = duration.match(/(\d+(?:\.\d+)?)/);
+    if (match) return Number(match[1]);
   }
   return 0;
 }
@@ -41,6 +39,7 @@ export default defineEventHandler(async (event) => {
       date?: string;
     }
   >(event);
+
   const {
     userId,
     type,
@@ -74,7 +73,6 @@ export default defineEventHandler(async (event) => {
   }
   const dayKey = parsedDate.toISOString().slice(0, 10);
 
-  // Only allow creating activities for the current day
   const todayKey = new Date().toISOString().slice(0, 10);
   if (dayKey !== todayKey) {
     throw createError({
@@ -83,29 +81,29 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Ensure the caller is authenticated and can only create activities for
-  // their own account.
   await requireAuthenticatedUser(event, userId);
 
   const collection = await getCollection<ActivityDoc>("activities");
   const now = new Date();
+  const minutesValue =
+    typeof durationMinutes === "number"
+      ? durationMinutes
+      : parseDurationMinutes(duration);
   const caloriesValue =
-    typeof calories === "number" && !Number.isNaN(calories) ? calories : 0;
+    typeof caloriesBurned === "number" && caloriesBurned > 0
+      ? caloriesBurned
+      : typeof calories === "number" && calories > 0
+      ? calories
+      : 0;
 
   const doc: ActivityDoc = {
     userId,
     type: type.trim(),
     duration: duration.trim(),
-    durationMinutes:
-      typeof durationMinutes === "number" && !Number.isNaN(durationMinutes)
-        ? durationMinutes
-        : parseDurationMinutes(duration),
+    durationMinutes: minutesValue,
     workoutType: workoutType || type,
     intensity: intensity || "moderate",
-    caloriesBurned:
-      typeof caloriesBurned === "number" && caloriesBurned > 0
-        ? caloriesBurned
-        : undefined,
+    caloriesBurned: caloriesValue || undefined,
     date: parsedDate.toISOString(),
     dayKey,
     calories: caloriesValue,
@@ -121,8 +119,9 @@ export default defineEventHandler(async (event) => {
   try {
     const userCollection = await getCollection("user");
     const userDoc: any = await userCollection.findOne({ userId });
+    const baseline = userDoc?.baselineMacros;
 
-    if (userDoc?.baselineMacros) {
+    if (baseline) {
       const weightKg =
         typeof userDoc.weightKg === "number"
           ? userDoc.weightKg
@@ -134,6 +133,7 @@ export default defineEventHandler(async (event) => {
         const todaysActivities = await collection
           .find({ userId, dayKey })
           .toArray();
+
         const workouts = todaysActivities.map((activity) => ({
           workoutType: activity.workoutType || activity.type,
           durationMinutes:
@@ -141,6 +141,7 @@ export default defineEventHandler(async (event) => {
           intensity: activity.intensity || "moderate",
           caloriesBurned: activity.caloriesBurned || activity.calories,
         }));
+
         const goal =
           userDoc.mealPlanMode === "cut" ||
           userDoc.mealPlanMode === "bulk" ||
@@ -149,17 +150,11 @@ export default defineEventHandler(async (event) => {
             : "maintain";
 
         const adjusted = adjustMacrosForWorkouts(
-          userDoc.baselineMacros,
+          baseline,
           workouts,
           weightKg,
           goal
         );
-
-        const existingCompletion =
-          userDoc.dayMetricsByDate?.[dayKey]?.completionPercent ??
-          (userDoc.dayMetrics?.date === dayKey
-            ? userDoc.dayMetrics?.completionPercent ?? null
-            : null);
 
         await userCollection.updateOne(
           { userId },
@@ -175,7 +170,10 @@ export default defineEventHandler(async (event) => {
                   sugar: adjusted.sugar,
                   sodium: adjusted.sodium,
                 },
-                completionPercent: existingCompletion,
+                completionPercent:
+                  userDoc.dayMetrics?.date === dayKey
+                    ? userDoc.dayMetrics?.completionPercent ?? null
+                    : null,
               },
               [`dayMetricsByDate.${dayKey}`]: {
                 metrics: {
@@ -186,7 +184,11 @@ export default defineEventHandler(async (event) => {
                   sugar: adjusted.sugar,
                   sodium: adjusted.sodium,
                 },
-                completionPercent: existingCompletion,
+                completionPercent:
+                  userDoc.dayMetricsByDate?.[dayKey]?.completionPercent ??
+                  (userDoc.dayMetrics?.date === dayKey
+                    ? userDoc.dayMetrics?.completionPercent ?? null
+                    : null),
               },
               updatedAt: new Date(),
             },

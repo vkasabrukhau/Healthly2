@@ -59,64 +59,77 @@ type ActivityEntry = {
   id?: string;
   type: string;
   duration: string;
-  durationMinutes?: number;
-  workoutType?: string;
-  intensity?: "low" | "moderate" | "high";
   date: string;
   calories: number;
-  caloriesBurned?: number;
   status: ActivityStatus;
   plannedAt?: string;
   completedAt?: string;
 };
 
-const DEFAULT_MACRO_GOALS: Array<{
-  key: MacroKey;
-  label: string;
-  goal: number;
-  unit: string;
-}> = [
-  { key: "calories", label: "Calories", goal: 2200, unit: "kcal" },
-  { key: "protein", label: "Protein", goal: 120, unit: "g" },
-  { key: "carbs", label: "Carbs", goal: 260, unit: "g" },
-  { key: "fat", label: "Fat", goal: 70, unit: "g" },
-  { key: "sugar", label: "Sugar", goal: 55, unit: "g" },
-  { key: "sodium", label: "Sodium", goal: 2300, unit: "mg" },
-];
-
+// Baseline metrics provided by the server (persisted `baselineMetrics` on the user)
 const baseline = ref<Record<string, number> | null>(null);
-const dayMetrics = ref<
-  | {
-      date: string;
-      metrics: Record<string, number>;
-      completionPercent?: number | null;
-    }
-  | null
->(null);
+
+// Base macro goals derived from baseline when available, otherwise fall back to sane defaults.
+const baseMacroGoals = computed<
+  Array<{ key: MacroKey; label: string; goal: number; unit: string }>
+>(() => {
+  const b = baseline.value;
+  return [
+    {
+      key: "calories",
+      label: "Calories",
+      goal: Number(b?.calories ?? 2200),
+      unit: "kcal",
+    },
+    {
+      key: "protein",
+      label: "Protein",
+      goal: Number(b?.protein ?? 120),
+      unit: "g",
+    },
+    { key: "carbs", label: "Carbs", goal: Number(b?.carbs ?? 260), unit: "g" },
+    { key: "fat", label: "Fat", goal: Number(b?.fat ?? 70), unit: "g" },
+    { key: "sugar", label: "Sugar", goal: Number(b?.sugar ?? 55), unit: "g" },
+    {
+      key: "sodium",
+      label: "Sodium",
+      goal: Number(b?.sodium ?? 2300),
+      unit: "mg",
+    },
+  ];
+});
+
+// Day-specific metrics for the currently selected day (only today's metrics are auto-generated)
+const dayMetrics = ref<Record<string, number> | null>(null);
 
 function metricsToGoals(
-  metrics: Record<string, number> | null | undefined
+  metrics: Record<string, number> | null
 ): Array<{ key: MacroKey; label: string; goal: number; unit: string }> {
-  if (!metrics) return DEFAULT_MACRO_GOALS;
-  return DEFAULT_MACRO_GOALS.map((goal) => ({
-    ...goal,
-    goal: Number(metrics[goal.key] ?? goal.goal),
-  }));
+  const m = metrics ?? {};
+  return [
+    {
+      key: "calories",
+      label: "Calories",
+      goal: Number(m?.calories ?? 2200),
+      unit: "kcal",
+    },
+    {
+      key: "protein",
+      label: "Protein",
+      goal: Number(m?.protein ?? 120),
+      unit: "g",
+    },
+    { key: "carbs", label: "Carbs", goal: Number(m?.carbs ?? 260), unit: "g" },
+    { key: "fat", label: "Fat", goal: Number(m?.fat ?? 70), unit: "g" },
+    { key: "sugar", label: "Sugar", goal: Number(m?.sugar ?? 55), unit: "g" },
+    {
+      key: "sodium",
+      label: "Sodium",
+      goal: Number(m?.sodium ?? 2300),
+      unit: "mg",
+    },
+  ];
 }
-
-function normalizeDurationMinutes(value?: string | number | null) {
-  if (typeof value === "number" && !Number.isNaN(value)) return value;
-  if (typeof value === "string") {
-    const match = value.match(/(\d+(?:\.\d+)?)/);
-    if (match) return Number(match[1]);
-  }
-  return 0;
-}
-
-const today = new Date().toISOString().slice(0, 10);
-const selectedDate = ref(today);
-// Only allow submissions for today's date
-const isToday = computed(() => selectedDate.value === today);
 
 const macros = computed<MacroEntry[]>(() => {
   const totals = meals.value.reduce(
@@ -139,11 +152,11 @@ const macros = computed<MacroEntry[]>(() => {
     } as Record<MacroKey, number>
   );
 
-  const activeMetrics =
-    dayMetrics.value && dayMetrics.value.date === selectedDate.value
-      ? dayMetrics.value.metrics
-      : baseline.value;
-  const activeGoals = metricsToGoals(activeMetrics);
+  // If the user has day-specific metrics for today, prefer them for the dashboard
+  const useDay = isToday.value && dayMetrics.value;
+  const activeGoals = useDay
+    ? metricsToGoals(dayMetrics.value)
+    : baseMacroGoals.value;
   return activeGoals.map((goal) => ({
     ...goal,
     consumed: Number(totals[goal.key as MacroKey].toFixed(1)),
@@ -176,10 +189,17 @@ const weight = reactive({
 const weightForm = reactive({ weight: "" });
 const isWeightLoading = ref(false);
 
+const getToday = () => new Date().toISOString().slice(0, 10);
+const todayRef = ref(getToday());
+const selectedDate = ref(todayRef.value);
+// Only allow submissions for today's date
+const isToday = computed(() => selectedDate.value === todayRef.value);
 const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
 const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
 // When the profile is loaded from the server we assign `mealPlanMode` programmatically.
+// Use this flag to suppress the watch that persists the value (and triggers regeneration)
+// so that loading the existing value from MongoDB doesn't cause an OpenRouter call.
 const suppressMealPlanPersist = ref(false);
 
 const mealForm = reactive({
@@ -201,10 +221,8 @@ const mealFormSource = ref<"duke" | "custom" | null>(null);
 
 const activityForm = reactive({
   type: "",
-  workoutType: "strength",
-  durationMinutes: "",
-  caloriesBurned: "",
-  intensity: "moderate" as "low" | "moderate" | "high",
+  duration: "",
+  calories: "",
   status: "Completed" as ActivityStatus,
 });
 
@@ -231,39 +249,8 @@ const macroCompletion = computed(() => {
   return avg / 100;
 });
 
-const macroCompletionPercent = computed(() =>
-  Math.round(macroCompletion.value * 100)
-);
-
-const isSavingCompletion = ref(false);
 const completionSavedAt = ref<Date | null>(null);
-
-async function saveMacroCompletion() {
-  if (!userId.value || selectedDate.value !== today) return;
-  isSavingCompletion.value = true;
-  completionSavedAt.value = null;
-  try {
-    await $fetch("/api/day-metrics", {
-      method: "POST",
-      body: {
-        userId: userId.value,
-        date: selectedDate.value,
-        completionPercent: macroCompletionPercent.value,
-      },
-    });
-    if (dayMetrics.value && dayMetrics.value.date === selectedDate.value) {
-      dayMetrics.value = {
-        ...dayMetrics.value,
-        completionPercent: macroCompletionPercent.value,
-      };
-    }
-    completionSavedAt.value = new Date();
-  } catch (error) {
-    if (process.dev) console.error("Failed to save macro completion", error);
-  } finally {
-    isSavingCompletion.value = false;
-  }
-}
+const lastSavedCompletionPercent = ref<number | null>(null);
 
 const sleepQualityMultiplier = computed(() => {
   const label = (sleep.quality || "").toLowerCase();
@@ -362,12 +349,14 @@ watch(
   { immediate: true }
 );
 
-// Load the persisted profile (currently used for water goal defaults) when we get a userId
+// Load the persisted profile (baseline metrics) when we get a userId
 watch(
   () => userId.value,
   (uid) => {
     if (uid) {
       fetchUserProfile();
+    } else {
+      baseline.value = null;
     }
   },
   { immediate: true }
@@ -430,7 +419,7 @@ const waterPercent = computed(() => {
 const normalizeDayString = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return today;
+    return todayRef.value;
   }
   return parsed.toISOString().slice(0, 10);
 };
@@ -519,19 +508,18 @@ const fetchActivitiesForDay = async () => {
       id: item.id || item._id?.toString?.(),
       type: item.type || "Activity",
       duration: item.duration || "",
-      durationMinutes:
-        typeof item.durationMinutes === "number"
-          ? item.durationMinutes
-          : normalizeDurationMinutes(item.duration),
-      workoutType: item.workoutType || item.type || "Activity",
-      intensity: item.intensity || "moderate",
       date: item.dayKey || normalizeDayString(item.date || selectedDate.value),
       calories: Number(item.calories) || 0,
-      caloriesBurned: Number(item.caloriesBurned || item.calories) || 0,
       status: item.status === "Planned" ? "Planned" : "Completed",
       plannedAt: item.plannedAt,
       completedAt: item.completedAt,
     }));
+    try {
+      await fetchUserProfile(selectedDate.value);
+    } catch (refreshErr) {
+      if (process.dev)
+        console.warn("Failed to refresh profile after activities", refreshErr);
+    }
   } catch (error) {
     if (process.dev) console.error("Failed to load activities", error);
     activities.value = [];
@@ -595,42 +583,43 @@ const fetchWaterForDay = async () => {
   }
 };
 
-// Fetch the persistent user profile (used for macro baselines + water goal)
+// Fetch the persistent user profile (macro baselines + water goal)
 async function fetchUserProfile(dateOverride?: string) {
   if (!userId.value) return;
   const dateParam = dateOverride || selectedDate.value;
   try {
     if (process.dev)
-      console.info(
-        "[debug] fetchUserProfile ->",
-        userId.value,
-        "date",
-        dateParam
-      );
+      console.info("[debug] fetchUserProfile ->", userId.value, "date", dateParam);
     const resp: any = await $fetch(`/api/users/${userId.value}`, {
       params: { date: dateParam },
     });
     const profile = resp?.profile ?? null;
     baseline.value = profile?.baselineMacros ?? null;
+
     if (profile?.dayMetrics) {
       dayMetrics.value = profile.dayMetrics;
     } else if (baseline.value) {
       dayMetrics.value = {
         date: dateParam,
         metrics: baseline.value,
+        completionPercent: null,
       };
     } else {
       dayMetrics.value = null;
     }
+
     if (
       dayMetrics.value &&
-      dayMetrics.value.date === today &&
+      dayMetrics.value.date === todayRef.value &&
       typeof dayMetrics.value.completionPercent === "number"
     ) {
       completionSavedAt.value = new Date();
-    } else if (dateParam === today) {
+      lastSavedCompletionPercent.value = dayMetrics.value.completionPercent;
+    } else if (dateParam === todayRef.value) {
       completionSavedAt.value = null;
+      lastSavedCompletionPercent.value = null;
     }
+
     if (
       typeof profile?.waterGoal === "number" &&
       (!water.goal || water.goal === 0)
@@ -640,6 +629,7 @@ async function fetchUserProfile(dateOverride?: string) {
     }
   } catch (err) {
     if (process.dev) console.error("Failed to load user profile", err);
+    baseline.value = null;
   }
 }
 
@@ -649,7 +639,7 @@ watch(
   () => selectedDate.value,
   (val) => {
     if (!val) {
-      selectedDate.value = today;
+      selectedDate.value = todayRef.value;
       return;
     }
     const normalized = normalizeDayString(val);
@@ -689,8 +679,6 @@ watch(
       weight.today = null;
       weight.yesterday = null;
       weightForm.weight = "";
-      baseline.value = null;
-      dayMetrics.value = null;
     }
   },
   { immediate: true }
@@ -746,7 +734,7 @@ const addMeal = async () => {
     return;
   }
 
-  const activeDate = selectedDate.value || today;
+  const activeDate = selectedDate.value || todayRef.value;
 
   const macros: MacroBreakdown = {
     protein: Number(mealForm.protein) || 0,
@@ -805,8 +793,7 @@ const addMeal = async () => {
 };
 
 const addActivity = async () => {
-  const durationMinutes = Number(activityForm.durationMinutes);
-  if (!activityForm.workoutType || !durationMinutes) {
+  if (!activityForm.type || !activityForm.duration || !activityForm.calories) {
     return;
   }
 
@@ -816,30 +803,39 @@ const addActivity = async () => {
     return;
   }
 
-  const activeDate = selectedDate.value || today;
+  const activeDate = selectedDate.value || todayRef.value;
 
   if (!userId.value) {
     return;
   }
-
-  const activeType = activityForm.type?.trim() || activityForm.workoutType;
-  const durationLabel = `${durationMinutes} min`;
-  const caloriesBurned = Number(activityForm.caloriesBurned) || 0;
 
   try {
     const res: any = await $fetch("/api/activities", {
       method: "POST",
       body: {
         userId: userId.value,
-        type: activeType,
-        workoutType: activityForm.workoutType,
-        duration: durationLabel,
-        durationMinutes,
-        intensity: activityForm.intensity,
+        type: activityForm.type,
+        duration: activityForm.duration,
         date: activeDate,
-        calories: caloriesBurned,
-        caloriesBurned,
+        calories: Number(activityForm.calories),
         status: activityForm.status,
+        // Also include the full list of today's activities (including this new one)
+        // so the server or downstream handlers receive the complete context.
+        activitiesToday: [
+          {
+            type: activityForm.type,
+            duration: activityForm.duration,
+            calories: Number(activityForm.calories),
+            status: activityForm.status,
+          },
+          // include existing activities (both Completed and Planned)
+          ...(activities.value || []).map((a) => ({
+            type: a.type,
+            duration: a.duration,
+            calories: a.calories,
+            status: a.status,
+          })),
+        ],
       },
     });
 
@@ -847,14 +843,10 @@ const addActivity = async () => {
     try {
       const newActivity: ActivityEntry = {
         id: res?.insertedId?.toString?.() ?? res?.insertedId,
-        type: activeType,
-        workoutType: activityForm.workoutType,
-        duration: durationLabel,
-        durationMinutes,
+        type: activityForm.type,
+        duration: activityForm.duration,
         date: activeDate,
-        calories: caloriesBurned,
-        caloriesBurned,
-        intensity: activityForm.intensity,
+        calories: Number(activityForm.calories),
         status: activityForm.status,
       };
       activities.value = [newActivity, ...activities.value];
@@ -868,10 +860,8 @@ const addActivity = async () => {
   }
 
   activityForm.type = "";
-  activityForm.durationMinutes = "";
-  activityForm.caloriesBurned = "";
-  activityForm.workoutType = "strength";
-  activityForm.intensity = "moderate";
+  activityForm.duration = "";
+  activityForm.calories = "";
   activityForm.status = "Completed";
 };
 
@@ -1172,24 +1162,6 @@ watch(
               </div>
             </li>
           </ul>
-          <div class="macro-actions">
-            <button
-              type="button"
-              class="btn btn--ghost"
-              :disabled="isSavingCompletion || !userId || !isToday"
-              @click="saveMacroCompletion"
-            >
-              {{
-                isSavingCompletion
-                  ? "Saving…"
-                  : `Save completion (${macroCompletionPercent}%)`
-              }}
-            </button>
-            <p v-if="completionSavedAt" class="completion-hint">
-              Logged at
-              {{ completionSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}
-            </p>
-          </div>
         </article>
       </section>
 
@@ -1634,21 +1606,9 @@ watch(
                 "
               >
                 <div>
-                  <p class="activity-list__name">
-                    {{
-                      activity.type ||
-                      activity.workoutType ||
-                      "Activity session"
-                    }}
-                  </p>
+                  <p class="activity-list__name">{{ activity.type }}</p>
                   <p class="activity-list__meta">
-                    {{ activity.date }} ·
-                    {{ activity.workoutType || "Session" }} ·
-                    <span v-if="activity.durationMinutes">
-                      {{ activity.durationMinutes }} min
-                    </span>
-                    <span v-else>{{ activity.duration }}</span>
-                    · {{ activity.intensity || "moderate" }}
+                    {{ activity.date }} · {{ activity.duration }}
                   </p>
                 </div>
                 <div class="activity-list__details">
@@ -1661,7 +1621,7 @@ watch(
                     {{ activity.status }}
                   </span>
                   <p class="activity-list__calories">
-                    {{ Math.round(activity.caloriesBurned || activity.calories || 0) }} cal
+                    {{ activity.calories }} cal
                   </p>
                   <button
                     type="button"
@@ -1676,7 +1636,7 @@ watch(
                     }}
                   </button>
                   <button
-                    v-if="activity.id && isToday && activity.status !== 'Completed'"
+                    v-if="activity.id && isToday"
                     type="button"
                     class="icon-button"
                     @click="deleteActivity(activity)"
@@ -1692,38 +1652,26 @@ watch(
               <input
                 v-model="activityForm.type"
                 type="text"
-                placeholder="Session name (optional)"
-              />
-              <select v-model="activityForm.workoutType" required>
-                <option value="strength">Strength</option>
-                <option value="endurance">Endurance</option>
-                <option value="mixed">Mixed</option>
-                <option value="walking">Walking</option>
-                <option value="hiit">HIIT</option>
-              </select>
-            </div>
-            <div class="form__row">
-              <input
-                v-model="activityForm.durationMinutes"
-                type="number"
-                min="5"
-                max="300"
-                placeholder="Duration (minutes)"
+                placeholder="Activity type"
                 required
               />
-              <select v-model="activityForm.intensity" required>
-                <option value="low">Low intensity</option>
-                <option value="moderate">Moderate</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div class="form__row">
               <input
-                v-model="activityForm.caloriesBurned"
+                v-model="activityForm.duration"
+                type="text"
+                placeholder="Duration e.g. 25 min"
+                required
+              />
+            </div>
+            <div class="form__row form__row--date-note">
+              <input
+                v-model="activityForm.calories"
                 type="number"
                 min="0"
-                placeholder="Calories burned (optional)"
+                placeholder="Calories"
+                required
               />
+            </div>
+            <div class="form__row form__row--compact">
               <select
                 v-model="activityForm.status"
                 aria-label="Completion state"
@@ -1756,4 +1704,844 @@ watch(
   </SignedOut>
 </template>
 
-<style scoped src="./dashboard.css"></style>
+<style scoped>
+:global(body) {
+  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  margin: 0;
+  background: #05070a;
+  color: #f8f7f4;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 64px clamp(1.25rem, 5vw, 5rem) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.intro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.intro h1 {
+  margin: 0.5rem 0 1rem;
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+}
+
+.intro p {
+  margin: 0;
+  max-width: 640px;
+  color: #d9d7d2;
+}
+
+.day-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+/* Make the native calendar icon visible on dark backgrounds (WebKit) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+}
+
+.mealplan-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.mealplan-label {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #ffb08f; /* match viewing date label color */
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.plan-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.plan-buttons .btn {
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f8f7f4;
+}
+
+/* Subtle blue hue for the selected plan button */
+.plan-buttons .btn.active {
+  background: linear-gradient(120deg, #4facfe, #3b82f6);
+  color: white;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.day-selector label {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #ffb08f;
+}
+
+.eyebrow,
+.card__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 0.75rem;
+  color: #ffb08f;
+  margin: 0 0 0.5rem;
+}
+
+.btn {
+  border-radius: 999px;
+  padding: 0.9rem 1.6rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: linear-gradient(120deg, #4f9cff, #3b6fe1);
+  color: #f5fbff;
+  box-shadow: 0 12px 32px rgba(63, 121, 228, 0.35);
+}
+
+.btn--blue-coral {
+  background: linear-gradient(120deg, #7acbff, #4f9cff);
+  color: #041426;
+  box-shadow: 0 12px 32px rgba(74, 169, 255, 0.25);
+  border: 1px solid rgba(79, 156, 255, 0.4);
+  text-decoration: none;
+}
+
+.btn--blue-coral:focus,
+.btn--blue-coral:active {
+  outline: none;
+}
+
+.btn--secondary {
+  background: rgba(79, 156, 255, 0.15);
+  color: #dfe9ff;
+  border: 1px solid rgba(79, 156, 255, 0.4);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8f7f4;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn--stack {
+  text-align: center;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (min-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .dial-card {
+    max-width: 440px;
+  }
+}
+
+.card {
+  border-radius: 28px;
+  padding: 2rem;
+  background: rgba(12, 14, 19, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Make the meals and activity cards slightly more compact vertically */
+.meals-card,
+.activity-card {
+  padding: 1.25rem;
+}
+
+.dial-card {
+  min-height: 360px;
+}
+
+.dial-chart {
+  width: 100%;
+  height: 280px;
+}
+
+.dial-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dial-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.mini-stat {
+  padding: 0.9rem 1.1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mini-stat__label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ffb08f;
+}
+
+.mini-stat__value {
+  margin: 0.35rem 0 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.mini-stat__sub {
+  margin: 0.2rem 0 0;
+  color: #b8b4ad;
+}
+
+.dial-card__note {
+  margin: 0;
+  color: #c5c2bc;
+  font-size: 0.95rem;
+}
+
+.dial-card__note--muted {
+  color: #a7a39b;
+  font-size: 0.9rem;
+}
+
+.macros-card ul,
+.meals-list,
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Reserve vertical space for dynamic lists so inserting/removing items doesn't
+   cause the card to resize unexpectedly. Allow scrolling when content grows. */
+.meals-list,
+.activity-list {
+  min-height: 120px; /* reduced to shrink card height */
+  max-height: 420px; /* prevent runaway growth */
+  overflow: auto;
+}
+
+.macros-card ul {
+  /* Increase vertical space so macros are visible without scrolling on
+     typical desktop viewports. Allow the list to expand naturally. */
+  min-height: 220px;
+  max-height: none;
+  overflow: visible;
+}
+
+.macro-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.macro-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.macro-status__percent {
+  font-weight: 600;
+  color: #ffc083;
+}
+
+.macro-row__label {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.macro-row__value {
+  margin: 0.2rem 0 0;
+  color: #aea9a0;
+}
+
+.macro-pill {
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.macro-pill--hit {
+  background: rgba(157, 228, 197, 0.1);
+  border-color: rgba(157, 228, 197, 0.6);
+  color: #9de4c5;
+}
+
+.progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff8367, #ffc083);
+}
+
+.macro-progress {
+  margin-top: 0.4rem;
+}
+
+.macro-dial {
+  display: none;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: #f8f7f4;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 0.75rem;
+}
+
+.weight-card .weight-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.weight-card .weight-unit {
+  margin-left: 0.35rem;
+  color: #cfcac2;
+}
+.weight-card .delta-up {
+  color: #9de4c5;
+}
+.weight-card .delta-down {
+  color: #ff9a9a;
+}
+
+.progress--thick {
+  height: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  /* three equal columns so Sleep, Hydration and Weight sit in a single row;
+     AI copilot will span the full width below */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.ai-card {
+  gap: 0.5rem;
+  grid-column: 1 / -1; /* span full width under sleep + hydration */
+}
+
+/* Responsive: fall back to 2 columns on medium screens and 1 column on small screens */
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .ai-card {
+    grid-column: auto;
+  }
+}
+
+/* Make sleep hours large and prominent */
+.sleep-card header h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.sleep-card .sleep-hours {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.sleep-card .sleep-hours-label {
+  font-size: 1.1rem;
+  color: #b8b4ad;
+}
+
+/* Bottom-justify hydration form */
+.water-card {
+  display: flex;
+  flex-direction: column;
+}
+.water-card .form {
+  margin-top: auto;
+}
+
+/* Bottom-justify weight form so input and button sit at the card bottom */
+.weight-card {
+  display: flex;
+  flex-direction: column;
+}
+.weight-card .form {
+  margin-top: auto;
+}
+
+.card__sub {
+  margin: 0;
+  color: #b8b4ad;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.activity-card,
+.meals-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.meals-list li,
+.activity-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.activity-list__details {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.activity-card .activity-list {
+  flex-grow: 1;
+}
+
+.activity-card .form {
+  margin-top: auto;
+}
+
+/* Reserve space for the meals and activity forms so adding extra inputs doesn't shift layout */
+.meals-card .form {
+  /* Reserve more vertical space for the full meal form (prevents jump when extra rows appear) */
+  min-height: 360px;
+}
+
+.activity-card .form {
+  min-height: 200px;
+}
+
+.form__row {
+  margin-bottom: 10px;
+}
+
+/* Slightly increase horizontal gap between inputs for clearer spacing */
+
+/* Use CSS grid for meal rows so inputs get equal widths and consistent gaps
+   regardless of how many columns are present (2 or 3). This prevents
+   uneven spacing caused by varying input types (time, number, text). */
+.meals-card .form .form__row,
+.custom-form .form__row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1.25rem;
+  align-items: center;
+  min-height: 48px; /* ensure consistent row height */
+}
+
+/* Ensure each input/select/textarea in those meal rows stretches to fill column */
+.meals-card .form .form__row > *,
+.custom-form .form__row > * {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Make textarea a stable size so it doesn't change layout when toggled */
+.duke-form textarea {
+  min-height: 64px;
+}
+
+/* Ensure meals card behaves the same as activity: the list grows and the form
+   is anchored to the bottom so there's no awkward gap under inputs */
+.meals-card {
+  min-height: 0; /* allow card to shrink below content if necessary */
+}
+.activity-card {
+  min-height: 0;
+}
+.meals-card .meals-list {
+  flex-grow: 1;
+}
+.meals-card .form {
+  margin-top: auto;
+}
+
+.meals-list__time,
+.meals-list__meta,
+.activity-list__meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #a7a39b;
+}
+
+.meals-list__name,
+.activity-list__name {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meals-list__calories,
+.activity-list__calories {
+  margin: 0;
+  color: #ffc083;
+  font-weight: 600;
+}
+
+.meals-list__macros {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: #c5c2bc;
+}
+
+.meals-list__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meals-list__stats {
+  text-align: right;
+}
+
+.activity-pill {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.activity-pill--planned {
+  border-color: rgba(79, 172, 254, 0.8);
+  color: #4facfe;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* increased vertical spacing between form rows */
+  margin-top: 0.5rem;
+}
+
+.form__row--date-note {
+  align-items: stretch;
+}
+
+.form__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  margin-top: 0.25rem;
+  align-items: center;
+}
+
+/* Make action buttons share the full row equally (50/50) */
+.form__actions > * {
+  flex: 1 1 0;
+  min-width: 0; /* allow shrinking inside gap */
+}
+.form__actions .btn {
+  width: 100%;
+  height: 40px; /* match input height for visual alignment */
+  padding: 0 0.75rem;
+}
+
+.date-note {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.5rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 150px;
+}
+
+.date-note span {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #b8b4ad;
+}
+
+.date-note strong {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  color: #f8f7f4;
+}
+
+.list-placeholder {
+  padding: 0.35rem 0;
+  color: #a7a39b;
+  font-style: italic;
+  display: block;
+  border-bottom: none;
+}
+
+.icon-button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f8f7f4;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+
+.chip-button {
+  background: rgba(79, 156, 255, 0.18);
+  border-radius: 999px;
+  border: 1px solid rgba(79, 156, 255, 0.4);
+  color: #dfe9ff;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.meal-source-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.meal-source-step__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.meal-source-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.source-option {
+  border-radius: 18px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f8f7f4;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.source-option span {
+  font-size: 0.85rem;
+  color: #b8b4ad;
+}
+
+.source-option.active {
+  border-color: rgba(79, 156, 255, 0.8);
+  background: rgba(79, 156, 255, 0.15);
+}
+
+.meal-detail-header {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.duke-form textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8f7f4;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.duke-form textarea::placeholder {
+  color: rgba(248, 247, 244, 0.6);
+}
+
+.btn--ai {
+  background: linear-gradient(
+    120deg,
+    #ff7a9a,
+    #ffb86b
+  ); /* standout warm gradient */
+  color: #ffffff !important;
+  box-shadow: 0 12px 32px rgba(255, 138, 121, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none; /* remove underline */
+}
+
+.form__actions--single {
+  justify-content: flex-end;
+}
+
+/* Skeleton / placeholder helper so you can show reserved slots while data loads */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.06)
+  );
+  border-radius: 8px;
+  height: 48px;
+}
+
+.form__row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Ensure each input in a row shares available space and stretches to the same height
+   so inputs across sibling cards align vertically */
+.form__row > * {
+  flex: 1 1 0;
+  min-width: 0;
+  display: block;
+}
+
+/* Consistent, slightly smaller input/select height to reduce vertical footprint */
+input,
+select {
+  height: 40px;
+}
+
+.form__row--compact {
+  align-items: stretch;
+}
+
+input,
+select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8f7f4;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.92rem;
+  box-sizing: border-box;
+}
+
+input::placeholder {
+  color: rgba(248, 247, 244, 0.6);
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #ff8367;
+  outline-offset: 1px;
+}
+
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #f8f7f4 50%),
+    linear-gradient(135deg, #f8f7f4 50%, transparent 50%);
+  background-position: calc(100% - 20px) calc(50% - 3px),
+    calc(100% - 15px) calc(50% - 3px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.5rem;
+}
+
+@media (max-width: 640px) {
+  .form__row {
+    flex-direction: column;
+  }
+
+  .intro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .day-selector {
+    width: 100%;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .macro-progress {
+    display: none;
+  }
+
+  .macro-dial {
+    display: flex;
+    margin-left: auto;
+  }
+}
+</style>

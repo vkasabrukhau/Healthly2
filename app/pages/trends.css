@@ -16,9 +16,8 @@
 
 .trends-grid {
   margin-top: 1.25rem;
-  /* Stack charts vertically and make each chart full-width */
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.25rem;
 }
 
@@ -32,9 +31,23 @@
   min-height: 420px;
 }
 
+@media (max-width: 900px) {
+  .trend-chart {
+    height: 320px;
+  }
+}
+
 @media (max-width: 640px) {
   .trends-page .intro {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .trends-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-chart {
+    height: 280px;
   }
 }

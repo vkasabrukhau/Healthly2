@@ -364,4 +364,23 @@ h1 span {
   .btn {
     width: 100%;
   }
+
+  .ai,
+  .planning,
+  .trends {
+    padding: 1.5rem;
+  }
+
+  .section-heading h2 {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .ai,
+  .planning,
+  .trends {
+    gap: 1.5rem;
+  }
+}
 }

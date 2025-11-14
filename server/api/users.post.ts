@@ -1,35 +1,7 @@
+import { defineEventHandler, readBody, createError } from "h3";
 import { getCollection } from "../utils/mongo";
 import { calculateBaselineMacros } from "../utils/nutrition";
 import { requireAuthenticatedUser } from "./utils/require-auth";
-
-const KG_PER_LB = 0.45359237;
-
-function parseExerciseFrequency(value?: string | number | null) {
-  if (typeof value === "number" && !Number.isNaN(value)) {
-    return Math.max(value, 0);
-  }
-
-  if (typeof value === "string") {
-    if (value.includes("-")) {
-      const [min, max] = value
-        .split("-")
-        .map((segment) => Number(segment.trim()))
-        .filter((num) => !Number.isNaN(num));
-      if (min != null && max != null) {
-        return (min + max) / 2;
-      }
-    }
-    const numeric = Number(value);
-    if (!Number.isNaN(numeric)) return Math.max(numeric, 0);
-  }
-  return 0;
-}
-
-function normalizeGender(input?: string | null) {
-  if (!input) return "female";
-  const value = input.toLowerCase();
-  return value.startsWith("m") ? "male" : "female";
-}
 
 type UserProfileDoc = {
   userId: string;
@@ -40,24 +12,23 @@ type UserProfileDoc = {
   exerciseLevel: string;
   exerciseFrequency: string;
   exerciseMinutesPerWeek?: number;
+  exerciseFreqPerWeek?: number;
   photoDataUrl?: string;
   mealPlanMode?: "cut" | "maintain" | "bulk";
   currentWeight?: number;
   weightKg?: number;
   heightCm?: number;
   gender?: string;
+  waterGoal?: number;
   baselineMacros?: Record<string, number>;
   dayMetrics?: {
     date: string;
     metrics: Record<string, number>;
-    completionPercent?: number;
+    completionPercent?: number | null;
   };
   dayMetricsByDate?: Record<
     string,
-    {
-      metrics: Record<string, number>;
-      completionPercent?: number;
-    }
+    { metrics: Record<string, number>; completionPercent?: number | null }
   >;
   macroCompletionHistory?: Array<{
     date: string;
@@ -67,6 +38,31 @@ type UserProfileDoc = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+const KG_PER_LB = 0.45359237;
+
+function parseExerciseFrequency(value?: string | number | null) {
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return Math.max(value, 0);
+  }
+  if (typeof value === "string") {
+    if (value.includes("-")) {
+      const [min, max] = value
+        .split("-")
+        .map((part) => Number(part.trim()))
+        .filter((n) => !Number.isNaN(n));
+      if (min != null && max != null) return (min + max) / 2;
+    }
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) return Math.max(numeric, 0);
+  }
+  return 0;
+}
+
+function normalizeGender(value?: string | null) {
+  if (!value) return "female";
+  return value.toLowerCase().startsWith("m") ? "male" : "female";
+}
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<Partial<UserProfileDoc>>(event);
@@ -82,9 +78,6 @@ export default defineEventHandler(async (event) => {
     photoDataUrl,
   } = body;
 
-  // Determine whether this request contains the full onboarding profile
-  // (in which case we must validate all required fields) or is a partial
-  // update (for example only updating `mealPlanMode`).
   const hasFullProfile =
     !!userId && !!firstName && !!lastName && !!dob && typeof age === "number";
 
@@ -105,7 +98,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Ensure the caller is authenticated and can only modify their own profile
   if (!userId) {
     throw createError({ statusCode: 400, statusMessage: "Missing userId" });
   }
@@ -115,33 +107,24 @@ export default defineEventHandler(async (event) => {
   const now = new Date();
 
   if (hasFullProfile) {
-    // Accept either `weight` (assumed pounds) or `weightKg` from onboarding.
     const rawWeightKg = (body as any).weightKg;
     const rawWeight = (body as any).weight;
-    let initialWeight: number | undefined = undefined;
+    let initialWeight: number | undefined;
     if (typeof rawWeight === "number" && !Number.isNaN(rawWeight)) {
-      // caller provided pounds
       initialWeight = Number(rawWeight);
     } else if (typeof rawWeightKg === "number" && !Number.isNaN(rawWeightKg)) {
-      // caller provided kilograms; convert to pounds (1 kg = 2.2046226218 lb)
       initialWeight = Math.round(rawWeightKg * 2.2046226218 * 10) / 10;
     }
-
     const weightKg =
       typeof rawWeightKg === "number" && !Number.isNaN(rawWeightKg)
         ? rawWeightKg
         : typeof initialWeight === "number"
         ? Math.round(initialWeight * KG_PER_LB * 10) / 10
         : undefined;
-    const heightCmValue = (() => {
-      const raw = (body as any)?.heightCm;
-      if (typeof raw === "number" && !Number.isNaN(raw)) return raw;
-      if (typeof raw === "string") {
-        const parsed = Number(raw);
-        if (!Number.isNaN(parsed)) return parsed;
-      }
-      return undefined;
-    })();
+    const heightCmValue =
+      typeof (body as any).heightCm === "number"
+        ? (body as any).heightCm
+        : Number((body as any).heightCm) || undefined;
     const exerciseMinutesPerWeek =
       Number((body as any).exerciseMinutesPerWeek) || 0;
     const exerciseFreqPerWeek = parseExerciseFrequency(
@@ -162,6 +145,7 @@ export default defineEventHandler(async (event) => {
       heightCm: heightCmValue,
       photoDataUrl,
       mealPlanMode: (body as any).mealPlanMode ?? undefined,
+      waterGoal: (body as any).waterGoal ?? undefined,
       updatedAt: now,
     };
     if (typeof initialWeight === "number") {
@@ -174,8 +158,8 @@ export default defineEventHandler(async (event) => {
     const canComputeBaseline =
       typeof weightKg === "number" &&
       typeof heightCmValue === "number" &&
-      typeof age === "number" &&
-      goal;
+      typeof age === "number";
+
     if (canComputeBaseline) {
       const baselineMacros = calculateBaselineMacros({
         age: age as number,
@@ -205,8 +189,6 @@ export default defineEventHandler(async (event) => {
       { upsert: true }
     );
 
-    // If an initial weight was provided during onboarding, also insert
-    // a historical weight entry for today's dayKey so history is seeded.
     if (typeof initialWeight === "number") {
       try {
         const weightCol = await getCollection("weight");
@@ -223,7 +205,6 @@ export default defineEventHandler(async (event) => {
           { upsert: true }
         );
       } catch (e) {
-        // non-fatal: log in dev but don't fail onboarding
         if (process.dev) console.error("Failed to seed initial weight", e);
       }
     }
@@ -231,10 +212,11 @@ export default defineEventHandler(async (event) => {
     return { ok: true };
   }
 
-  // Partial update (e.g., only mealPlanMode)
   const partial: Partial<UserProfileDoc> = {};
   if ((body as any).mealPlanMode)
     partial.mealPlanMode = (body as any).mealPlanMode;
+  if ((body as any).waterGoal != null)
+    partial.waterGoal = Number((body as any).waterGoal);
 
   if (Object.keys(partial).length === 0) {
     throw createError({

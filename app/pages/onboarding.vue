@@ -74,34 +74,10 @@ const maintenanceOptions = [
   },
 ];
 
-const genderOptions = [
-  { value: "female", label: "Female" },
-  { value: "male", label: "Male" },
-];
-
-const mealPlanModes = [
-  {
-    value: "cut",
-    label: "Cut",
-    helper: "Calorie deficit for fat loss",
-  },
-  {
-    value: "maintain",
-    label: "Maintain",
-    helper: "Balanced intake for status quo",
-  },
-  {
-    value: "bulk",
-    label: "Bulk",
-    helper: "Slight surplus to build muscle",
-  },
-];
-
 const form = reactive({
   firstName: "",
   lastName: "",
   dob: "",
-  gender: "",
   weightLbs: "",
   heightFeet: "",
   heightInches: "",
@@ -110,7 +86,6 @@ const form = reactive({
   exerciseLevel: exerciseLevels?.[1]?.value ?? exerciseLevels?.[0]?.value ?? "",
   exerciseFrequency:
     frequencyOptions?.[1]?.value ?? frequencyOptions?.[0]?.value ?? "",
-  exerciseMinutesPerWeek: "",
   mealPlanMode: "maintain",
 });
 
@@ -144,27 +119,6 @@ const heightCm = computed(() => {
   return cm > 0 ? Math.round(cm * 10) / 10 : null;
 });
 
-const weightKg = computed(() => {
-  const lbs = Number(form.weightLbs);
-  if (!lbs) return null;
-  return Math.round(lbs * 0.45359237 * 10) / 10;
-});
-
-const exerciseSessionsPerWeek = computed(() => {
-  const value = form.exerciseFrequency;
-  if (!value) return 0;
-  if (value.includes("-")) {
-    const [min, max] = value
-      .split("-")
-      .map((segment) => Number(segment.trim()))
-      .filter((num) => !Number.isNaN(num));
-    if (min != null && max != null) return (min + max) / 2;
-  }
-  const numeric = Number(value);
-  if (!Number.isNaN(numeric)) return numeric;
-  return 0;
-});
-
 const levelLabel = computed(
   () => exerciseLevels.find((o) => o.value === form.exerciseLevel)?.label
 );
@@ -176,13 +130,10 @@ const isFormComplete = computed(() =>
   Boolean(
     form.firstName &&
       form.lastName &&
-      form.gender &&
       form.dob &&
       age.value !== "--" &&
       form.weightLbs &&
       form.heightFeet &&
-      form.exerciseMinutesPerWeek !== "" &&
-      form.exerciseMinutesPerWeek !== null &&
       form.maintenance &&
       form.exerciseLevel &&
       form.exerciseFrequency
@@ -204,9 +155,6 @@ onMounted(async () => {
     const cu = (user.value as any) || {};
     form.firstName = form.firstName || cu?.firstName || cu?.given_name || "";
     form.lastName = form.lastName || cu?.lastName || cu?.family_name || "";
-    if (!form.gender && cu?.gender) {
-      form.gender = cu.gender.toLowerCase().startsWith("m") ? "male" : "female";
-    }
 
     try {
       const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
@@ -228,9 +176,6 @@ watch(
     const cu = (user.value as any) || {};
     form.firstName = form.firstName || cu?.firstName || cu?.given_name || "";
     form.lastName = form.lastName || cu?.lastName || cu?.family_name || "";
-    if (!form.gender && cu?.gender) {
-      form.gender = cu.gender.toLowerCase().startsWith("m") ? "male" : "female";
-    }
     try {
       const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
       if (resp && resp.exists) {
@@ -281,15 +226,11 @@ const handleSubmit = async () => {
         age: Number(age.value),
         // onboarding now collects pounds (lbs) as the canonical input
         weight: Number(form.weightLbs),
-        weightKg: weightKg.value,
         heightCm: heightCm.value ?? null,
         maintenance: form.maintenance,
         exerciseLevel: form.exerciseLevel,
         exerciseFrequency: form.exerciseFrequency,
-        exerciseMinutesPerWeek: Number(form.exerciseMinutesPerWeek) || 0,
-        exerciseSessionsPerWeek: exerciseSessionsPerWeek.value,
         mealPlanMode: form.mealPlanMode,
-        gender: form.gender,
       },
     });
   } catch (error) {
@@ -366,23 +307,6 @@ const handleSubmit = async () => {
               <small v-if="attemptedSubmit && !form.lastName"
                 >Enter your last name.</small
               >
-            </label>
-            <label class="full-span">
-              <span>Gender</span>
-              <div class="option-toggle">
-                <button
-                  v-for="option in genderOptions"
-                  :key="option.value"
-                  type="button"
-                  :class="['toggle-chip', { active: form.gender === option.value }]"
-                  @click="form.gender = option.value"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-              <small v-if="attemptedSubmit && !form.gender">
-                Select the gender that best matches you.
-              </small>
             </label>
             <label>
               <span>Weight (lbs)</span>
@@ -479,37 +403,28 @@ const handleSubmit = async () => {
               </select>
             </label>
             <label>
-              <span>Approx. minutes of exercise per week</span>
-              <input
-                v-model.number="form.exerciseMinutesPerWeek"
-                type="number"
-                min="0"
-                max="2000"
-                step="5"
-                placeholder="e.g. 180"
-                required
-              />
-              <small v-if="attemptedSubmit && !form.exerciseMinutesPerWeek">
-                Enter how many minutes you usually train each week.
-              </small>
-            </label>
-            <label>
               <span>Meal plan mode</span>
-              <div class="option-toggle option-toggle--stacked">
-                <button
-                  v-for="mode in mealPlanModes"
-                  :key="mode.value"
-                  type="button"
-                  :class="[
-                    'toggle-chip',
-                    'toggle-chip--stacked',
-                    { active: form.mealPlanMode === mode.value },
-                  ]"
-                  @click="form.mealPlanMode = mode.value"
-                >
-                  <span class="toggle-chip__label">{{ mode.label }}</span>
-                  <small class="toggle-chip__hint">{{ mode.helper }}</small>
-                </button>
+              <div style="display: flex; gap: 0.5rem">
+                <label style="display: flex; align-items: center; gap: 0.4rem">
+                  <input type="radio" v-model="form.mealPlanMode" value="cut" />
+                  <small>Cut</small>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.4rem">
+                  <input
+                    type="radio"
+                    v-model="form.mealPlanMode"
+                    value="maintain"
+                  />
+                  <small>Maintain</small>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.4rem">
+                  <input
+                    type="radio"
+                    v-model="form.mealPlanMode"
+                    value="bulk"
+                  />
+                  <small>Bulk</small>
+                </label>
               </div>
             </label>
           </div>
@@ -531,16 +446,6 @@ const handleSubmit = async () => {
             <p class="label">Name</p>
             <p class="value">
               {{ form.firstName || "—" }} {{ form.lastName || "" }}
-            </p>
-          </li>
-          <li>
-            <p class="label">Gender</p>
-            <p class="value">
-              {{
-                form.gender
-                  ? genderOptions.find((opt) => opt.value === form.gender)?.label
-                  : "—"
-              }}
             </p>
           </li>
           <li>
@@ -586,24 +491,12 @@ const handleSubmit = async () => {
             <p class="value">{{ frequencyLabel || "—" }}</p>
           </li>
           <li>
-            <p class="label">Weekly minutes</p>
-            <p class="value">
-              {{
-                form.exerciseMinutesPerWeek !== "" &&
-                form.exerciseMinutesPerWeek !== null
-                  ? form.exerciseMinutesPerWeek + " min"
-                  : "—"
-              }}
-            </p>
+            <p class="label">Exercise level</p>
+            <p class="value">{{ levelLabel || "—" }}</p>
           </li>
           <li>
-            <p class="label">Goal</p>
-            <p class="value">
-              {{
-                mealPlanModes.find((mode) => mode.value === form.mealPlanMode)
-                  ?.label || "—"
-              }}
-            </p>
+            <p class="label">Frequency</p>
+            <p class="value">{{ frequencyLabel || "—" }}</p>
           </li>
         </ul>
         <p class="card__sub">
@@ -615,4 +508,262 @@ const handleSubmit = async () => {
   </div>
 </template>
 
-<style scoped src="./onboarding.css"></style>
+<style scoped>
+:global(body) {
+  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background: #05070a;
+  color: #f8f7f4;
+}
+
+:global(*),
+:global(*::before),
+:global(*::after) {
+  box-sizing: border-box;
+}
+
+.onboarding-page {
+  min-height: 100vh;
+  padding: 64px clamp(1.25rem, 5vw, 5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  width: min(1200px, 100%);
+  margin: 0 auto;
+}
+
+.intro {
+  max-width: 720px;
+}
+
+.intro h1 {
+  font-size: clamp(2.3rem, 4vw, 3.5rem);
+  margin-bottom: 0.5rem;
+}
+
+.intro p {
+  color: #c4c0b8;
+  margin: 0;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 0.75rem;
+  color: #ffb08f;
+  margin-bottom: 0.5rem;
+}
+
+.onboarding-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.card {
+  border-radius: 28px;
+  padding: 2rem;
+  background: rgba(12, 14, 19, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.form-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.form-grid label,
+.selectors label,
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+label span {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  color: #dcd9d3;
+}
+
+input,
+select {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8f7f4;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #ff8367;
+  outline-offset: 1px;
+}
+
+.dob-field {
+  position: relative;
+}
+
+.age-pill {
+  border-radius: 20px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.age-pill p {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #b4b0a8;
+}
+
+.age-pill strong {
+  font-size: 2rem;
+}
+
+.photo-upload {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.upload-label input[type="file"] {
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  padding: 0.75rem;
+  width: 100%;
+}
+
+.photo-preview {
+  min-height: 220px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-preview--empty {
+  border-style: dashed;
+}
+
+.selectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.btn {
+  border-radius: 999px;
+  padding: 0.95rem 1.5rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.btn--primary {
+  background: linear-gradient(120deg, #ff8367, #ffc083);
+  color: #111215;
+  box-shadow: 0 12px 32px rgba(255, 131, 103, 0.35);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.summary-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.summary-card .label {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #b4b0a8;
+}
+
+.summary-card .value {
+  margin: 0.15rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.card__sub {
+  margin: 0;
+  color: #a7a39b;
+}
+
+small {
+  display: block;
+  margin-top: 0.35rem;
+  color: rgba(255, 255, 255, 0.7);
+  min-height: 1rem;
+}
+
+.error {
+  color: #ff9f9f;
+}
+
+@media (max-width: 960px) {
+  .onboarding-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .photo-upload,
+  .selectors,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-page {
+    padding: 48px 1.25rem;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+</style>

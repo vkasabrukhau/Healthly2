@@ -293,4 +293,16 @@ small {
     width: 100%;
     text-align: center;
   }
+
+  .option-toggle,
+  .option-toggle--stacked {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toggle-chip,
+  .toggle-chip--stacked {
+    width: 100%;
+    min-width: 0;
+  }
 }

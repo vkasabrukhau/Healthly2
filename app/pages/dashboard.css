@@ -828,3 +828,73 @@ select {
     margin-left: auto;
   }
 }
+
+@media (max-width: 1024px) {
+  .page {
+    padding: 48px clamp(1.25rem, 6vw, 3rem) 72px;
+  }
+
+  .header-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .header-controls > * {
+    width: 100%;
+  }
+
+  .plan-buttons {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .plan-buttons .btn {
+    flex: 1 1 30%;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 840px) {
+  .meals-card .form .form__row,
+  .custom-form .form__row {
+    grid-template-columns: 1fr;
+    grid-auto-flow: row;
+  }
+
+  .meals-list li,
+  .activity-list li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .activity-list__details {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .macro-actions {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 540px) {
+  .plan-buttons .btn {
+    flex: 1 1 45%;
+  }
+
+  .macros-card header,
+  .macros-card ul {
+    width: 100%;
+  }
+
+  .macro-actions {
+    align-items: flex-start;
+  }
+}
