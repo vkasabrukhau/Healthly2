@@ -41,6 +41,12 @@ type MacroBreakdown = {
   sodium: number;
 };
 
+type DayMetricsDoc = {
+  date: string;
+  metrics: Record<string, number> | null;
+  completionPercent?: number | null;
+};
+
 type MealEntry = {
   id?: string;
   time: string;
@@ -100,7 +106,7 @@ const baseMacroGoals = computed<
 });
 
 // Day-specific metrics for the currently selected day (only today's metrics are auto-generated)
-const dayMetrics = ref<Record<string, number> | null>(null);
+const dayMetrics = ref<DayMetricsDoc | null>(null);
 
 function metricsToGoals(
   metrics: Record<string, number> | null
@@ -153,9 +159,10 @@ const macros = computed<MacroEntry[]>(() => {
   );
 
   // If the user has day-specific metrics for today, prefer them for the dashboard
-  const useDay = isToday.value && dayMetrics.value;
+  const useDay =
+    isToday.value && !!dayMetrics.value && !!dayMetrics.value.metrics;
   const activeGoals = useDay
-    ? metricsToGoals(dayMetrics.value)
+    ? metricsToGoals(dayMetrics.value!.metrics)
     : baseMacroGoals.value;
   return activeGoals.map((goal) => ({
     ...goal,
@@ -589,9 +596,14 @@ async function fetchUserProfile(dateOverride?: string) {
   const dateParam = dateOverride || selectedDate.value;
   try {
     if (process.dev)
-      console.info("[debug] fetchUserProfile ->", userId.value, "date", dateParam);
+      console.info(
+        "[debug] fetchUserProfile ->",
+        userId.value,
+        "date",
+        dateParam
+      );
     const resp: any = await $fetch(`/api/users/${userId.value}`, {
-      params: { date: dateParam },
+      params: { date: dateParam as unknown as number },
     });
     const profile = resp?.profile ?? null;
     baseline.value = profile?.baselineMacros ?? null;
