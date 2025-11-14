@@ -204,6 +204,16 @@ export default defineEventHandler(async (event) => {
           },
           { upsert: true }
         );
+
+        // Mirror the initial weight into the per-entry history collection so
+        // downstream weight lookups have a consistent source of truth.
+        const weightHistoryCol = await getCollection("weight_history");
+        await weightHistoryCol.insertOne({
+          userId,
+          dayKey,
+          weight: initialWeight,
+          recordedAt: now,
+        });
       } catch (e) {
         if (process.dev) console.error("Failed to seed initial weight", e);
       }

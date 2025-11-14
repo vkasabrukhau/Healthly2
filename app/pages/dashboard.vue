@@ -633,6 +633,29 @@ async function fetchUserProfile(dateOverride?: string) {
   }
 }
 
+const fetchWeightForDay = makeDayFetcher<any>({
+  endpoint: "weight",
+  loadingRef: isWeightLoading,
+  onSuccess: (response) => {
+    const today = response?.today;
+    const previous = response?.previous;
+    const history = Array.isArray(response?.history) ? response.history : [];
+    if (typeof today === "number") {
+      weight.today = Number(today);
+    } else if (response?.entry) {
+      weight.today = Number(response.entry.weight);
+    } else {
+      weight.today = null;
+    }
+    weight.yesterday = previous ? Number(previous.weight) : null;
+    weight.history = history.map((entry: any) => ({
+      weight: Number(entry.weight),
+      recordedAt: entry.recordedAt,
+    }));
+    weightForm.weight = weight.today != null ? String(weight.today) : "";
+  },
+});
+
 // Load weight for selected day and previous day (for delta comparison)
 
 watch(
@@ -684,29 +707,6 @@ watch(
   },
   { immediate: true }
 );
-
-const fetchWeightForDay = makeDayFetcher<any>({
-  endpoint: "weight",
-  loadingRef: isWeightLoading,
-  onSuccess: (response) => {
-    const today = response?.today;
-    const previous = response?.previous;
-    const history = Array.isArray(response?.history) ? response.history : [];
-    if (typeof today === "number") {
-      weight.today = Number(today);
-    } else if (response?.entry) {
-      weight.today = Number(response.entry.weight);
-    } else {
-      weight.today = null;
-    }
-    weight.yesterday = previous ? Number(previous.weight) : null;
-    weight.history = history.map((entry: any) => ({
-      weight: Number(entry.weight),
-      recordedAt: entry.recordedAt,
-    }));
-    weightForm.weight = weight.today != null ? String(weight.today) : "";
-  },
-});
 
 const addMeal = async () => {
   if (mealFormStage.value !== "details" || !mealFormSource.value) {
