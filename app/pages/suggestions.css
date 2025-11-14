@@ -57,7 +57,8 @@
 
 .suggestion-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* larger min column so dropdowns have room on desktop */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
 }
 
@@ -78,7 +79,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: 1rem;
+  padding: 1rem 1.1rem;
   border-radius: 20px;
   background: radial-gradient(
     circle at top,
@@ -96,6 +97,28 @@
   text-transform: uppercase;
 }
 
+.control-field {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border-radius: 18px;
+  padding: 0.2rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.control-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .form-group select,
 .form-group input {
   border-radius: 999px;
@@ -106,6 +129,7 @@
   font-size: 0.95rem;
   appearance: none;
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  min-width: 180px;
 }
 
 .form-group select:focus,
@@ -151,8 +175,12 @@
 
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1rem;
+  /* slightly larger minimum so cards have room and wrap cleanly */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  /* ensure cards align to the top of each grid cell and don't overlap */
+  align-items: start;
+  grid-auto-rows: minmax(0, auto);
 }
 
 .result-card {
@@ -163,12 +191,21 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  align-items: center;
+  text-align: center;
+  /* keep cards from becoming too wide when the grid stretches */
+  max-width: 420px;
+  width: 100%;
+  box-sizing: border-box;
+  /* prevent cards from shrinking unpredictably */
+  flex: 0 1 auto;
 }
 
 .result-card__header {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  align-items: center;
 }
 
 .result-card__tag {
@@ -218,6 +255,10 @@
   margin: 0;
 }
 
+.result-card__macros > div {
+  text-align: center;
+}
+
 .result-card__macros dt {
   margin: 0;
   font-size: 0.75rem;
@@ -234,8 +275,20 @@
 
 .result-card__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   margin-top: 0.75rem;
+}
+
+/* center grid items so each card is centered in its grid cell */
+.results-grid {
+  justify-items: center;
+}
+
+/* increase spacing a bit on small screens to avoid visual cramping */
+@media (max-width: 640px) {
+  .results-grid {
+    gap: 1rem;
+  }
 }
 
 .loading-overlay {
@@ -345,4 +398,11 @@
   .result-card__macros {
     grid-template-columns: 1fr;
   }
+}
+.form-group input[type="number"] {
+  padding-right: 1rem;
+}
+
+.form-group input {
+  width: 100%;
 }

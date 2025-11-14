@@ -37,13 +37,15 @@ const userId = computed(() => {
 });
 
 const formDefaults = {
-  timeOfDay: "",
-  mealType: "",
-  density: "",
-  workoutTiming: "",
-  dietPreference: "Any",
-  maxCalories: "",
   location: "",
+  mealSection: "",
+  category: "",
+  calories: "",
+  maxFat: "",
+  minProtein: "",
+  maxCarbs: "",
+  maxSugar: "",
+  maxSodium: "",
 };
 
 const form = reactive({ ...formDefaults });
@@ -58,17 +60,22 @@ const loadingProfile = ref(false);
 const profileError = ref("");
 const addingMealId = ref<string | null>(null);
 const lastFilters = ref<Record<string, any> | null>(null);
+const metadataError = ref("");
+const metadataLoading = ref(false);
+const filterOptions = reactive({
+  locations: [] as string[],
+  mealSections: [] as string[],
+  categories: [] as string[],
+});
 
-const requiredFields = ["timeOfDay", "mealType", "density", "workoutTiming"];
-const isFormValid = computed(
-  () => requiredFields.every((field) => form[field as keyof typeof form]) && !!userId.value
-);
+// Make filters optional — only require an authenticated user to generate
+const isFormValid = computed(() => !!userId.value);
 
 const shouldDisableGenerate = computed(
   () =>
-    ((!isFormValid.value && suggestions.value.length === 0) ||
-      isSubmitting.value ||
-      loadingProfile.value)
+    (!isFormValid.value && suggestions.value.length === 0) ||
+    isSubmitting.value ||
+    loadingProfile.value
 );
 
 function resetForm() {
@@ -77,24 +84,37 @@ function resetForm() {
 
 function buildFiltersPayload() {
   return {
-    timeOfDay: form.timeOfDay,
-    mealType: form.mealType,
-    density: form.density,
-    workoutTiming: form.workoutTiming,
-    dietPreference: form.dietPreference || "Any",
-    maxCalories: form.maxCalories ? Number(form.maxCalories) : null,
-    location: form.location || undefined,
+    location:
+      form.location && form.location !== "__all__" ? form.location : null,
+    mealSection:
+      form.mealSection && form.mealSection !== "__all__"
+        ? form.mealSection
+        : null,
+    category:
+      form.category && form.category !== "__all__" ? form.category : null,
+    calories: form.calories ? Number(form.calories) : null,
+    maxFat: form.maxFat ? Number(form.maxFat) : null,
+    minProtein: form.minProtein ? Number(form.minProtein) : null,
+    maxCarbs: form.maxCarbs ? Number(form.maxCarbs) : null,
+    maxSugar: form.maxSugar ? Number(form.maxSugar) : null,
+    maxSodium: form.maxSodium ? Number(form.maxSodium) : null,
   };
 }
 
 function buildFiltersSummary(filters: Record<string, any>) {
+  const loc = filters.location === "__all__" ? null : filters.location;
+  const sec = filters.mealSection === "__all__" ? null : filters.mealSection;
+  const cat = filters.category === "__all__" ? null : filters.category;
   const parts = [
-    filters.timeOfDay && `Time: ${filters.timeOfDay}`,
-    filters.mealType && `Type: ${filters.mealType}`,
-    filters.density && `Density: ${filters.density}`,
-    filters.workoutTiming && `Workout: ${filters.workoutTiming}`,
-    filters.dietPreference && filters.dietPreference !== "Any" && `Diet: ${filters.dietPreference}`,
-    filters.maxCalories && `≤ ${filters.maxCalories} kcal`,
+    loc && `Location: ${loc}`,
+    sec && `Section: ${sec}`,
+    cat && `Category: ${cat}`,
+    filters.calories && `≈ ${filters.calories} kcal`,
+    filters.maxFat && `≤ ${filters.maxFat}g fat`,
+    filters.minProtein && `≥ ${filters.minProtein}g protein`,
+    filters.maxCarbs && `≤ ${filters.maxCarbs}g carbs`,
+    filters.maxSugar && `≤ ${filters.maxSugar}g sugar`,
+    filters.maxSodium && `≤ ${filters.maxSodium}mg sodium`,
   ].filter(Boolean);
   return parts.join(" · ");
 }
@@ -113,8 +133,7 @@ function buildUserContext(filters: Record<string, any>) {
     exercisePlanned: filters.workoutTiming,
     mealPlanMode: profileData?.mealPlanMode ?? null,
     waterGoal: profileData?.waterGoal ?? null,
-    waterConsumed: profileData?.waterConsumed ?? null,
-    requestedItemType: filters.mealType,
+    requestedItemType: filters.category,
     macroGoals: {
       calories: macros.calories,
       protein: macros.protein,
@@ -134,9 +153,27 @@ async function fetchProfile(uid: string) {
     profile.value = resp?.profile ?? null;
   } catch (err: any) {
     profileError.value =
-      err?.statusMessage || err?.message || "Failed to load profile information.";
+      err?.statusMessage ||
+      err?.message ||
+      "Failed to load profile information.";
   } finally {
     loadingProfile.value = false;
+  }
+}
+
+async function fetchMetadata() {
+  metadataLoading.value = true;
+  metadataError.value = "";
+  try {
+    const resp: any = await $fetch("/api/suggestions/metadata");
+    filterOptions.locations = resp?.locations ?? [];
+    filterOptions.mealSections = resp?.mealSections ?? [];
+    filterOptions.categories = resp?.categories ?? [];
+  } catch (err: any) {
+    metadataError.value =
+      err?.statusMessage || err?.message || "Failed to load filter options.";
+  } finally {
+    metadataLoading.value = false;
   }
 }
 
@@ -190,21 +227,44 @@ const addSuggestionAsMeal = async (suggestion: SuggestionResult) => {
     const today = new Date();
     const todayKey = today.toISOString().slice(0, 10);
     const time = today.toTimeString().slice(0, 5);
+    // Normalize suggestion payload to match server requirements
+    const diningEstablishment =
+      suggestion.location ||
+      lastFilters.value?.location ||
+      suggestion.sourceItem ||
+      "AI suggestion";
+
+    const macros = suggestion.macros || {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      sugar: 0,
+      sodium: 0,
+    };
+
+    const calories = Number(macros.calories) || 0;
+
+    // Ensure required fields are present before attempting to log
+    if (!suggestion.title) {
+      throw new Error("Suggestion missing title/item name");
+    }
+
     await $fetch("/api/foods", {
       method: "POST",
       body: {
         userId: userId.value,
         itemName: suggestion.title,
-        description: suggestion.description,
+        diningEstablishment,
         dateConsumed: todayKey,
         time,
-        calories: suggestion.macros.calories,
+        calories,
         macros: {
-          protein: suggestion.macros.protein,
-          carbs: suggestion.macros.carbs,
-          fat: suggestion.macros.fat,
-          sugar: suggestion.macros.sugar,
-          sodium: suggestion.macros.sodium,
+          protein: Number(macros.protein) || 0,
+          carbs: Number(macros.carbs) || 0,
+          fat: Number(macros.fat) || 0,
+          sugar: Number(macros.sugar) || 0,
+          sodium: Number(macros.sodium) || 0,
         },
         portion: suggestion.sourceItem || "AI suggestion",
         mealClass:
@@ -216,7 +276,9 @@ const addSuggestionAsMeal = async (suggestion: SuggestionResult) => {
     await router.push("/dashboard");
   } catch (err: any) {
     errorMessage.value =
-      err?.statusMessage || err?.message || "Failed to log meal. Please try again.";
+      err?.statusMessage ||
+      err?.message ||
+      "Failed to log meal. Please try again.";
   } finally {
     addingMealId.value = null;
   }
@@ -226,6 +288,7 @@ onMounted(() => {
   if (userLoaded?.value && userId.value) {
     fetchProfile(userId.value);
   }
+  fetchMetadata();
 });
 </script>
 
@@ -236,13 +299,14 @@ onMounted(() => {
         <p class="eyebrow">AI suggestions</p>
         <h1>Dial in your next meal with the cafeteria dataset.</h1>
         <p>
-          Provide a few details and we’ll narrow the Duke dining dataset before sending it to the
-          nutrition model on OpenRouter. You’ll receive eight JSON suggestions that match your
-          macros, time of day, and workout context.
+          Provide a few details and we’ll narrow the Duke dining dataset before
+          sending it to the nutrition model on OpenRouter. You’ll receive eight
+          JSON suggestions that match your macros, time of day, and workout
+          context.
         </p>
         <p class="note">
-          Suggestions use the OpenRouter model you configured. Each request filters the CSV dataset
-          on-device first to reduce hallucinations.
+          Suggestions use the OpenRouter model you configured. Each request
+          filters the CSV dataset on-device first to reduce hallucinations.
         </p>
       </div>
       <NuxtLink class="btn btn--secondary" to="/dashboard">
@@ -254,85 +318,197 @@ onMounted(() => {
       <header>
         <p class="eyebrow">Filters</p>
         <p class="summary">
-          Fill out each selector before requesting. Filters reset automatically after each run.
+          Fill out each selector before requesting. Filters reset automatically
+          after each run.
         </p>
       </header>
       <form class="suggestion-form" @submit.prevent="handleSubmit">
         <div class="suggestion-form-grid">
-        <div class="form-group">
-          <label for="timeOfDay">Time of day</label>
-          <select id="timeOfDay" v-model="form.timeOfDay" required>
-            <option value="" disabled>Select</option>
-            <option>Morning</option>
-            <option>Midday</option>
-            <option>Afternoon</option>
-            <option>Evening</option>
-            <option>Night</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label for="location">Location</label>
+            <div class="control-field">
+              <span class="control-icon">🏬</span>
+              <template
+                v-if="filterOptions.locations && filterOptions.locations.length"
+              >
+                <select id="location" v-model="form.location">
+                  <option value="__all__">All locations</option>
+                  <option value="" disabled>Select location</option>
+                  <option
+                    v-for="loc in filterOptions.locations"
+                    :key="loc"
+                    :value="loc"
+                  >
+                    {{ loc }}
+                  </option>
+                </select>
+              </template>
+              <template v-else>
+                <input
+                  id="location"
+                  v-model="form.location"
+                  type="text"
+                  placeholder="e.g. Bella Union"
+                />
+              </template>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="mealType">Meal type</label>
-          <select id="mealType" v-model="form.mealType" required>
-            <option value="" disabled>Select</option>
-            <option>Meal</option>
-            <option>Snack</option>
-            <option>Drink</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label for="mealSection">Meal section</label>
+            <div class="control-field">
+              <span class="control-icon">📋</span>
+              <template
+                v-if="
+                  filterOptions.mealSections &&
+                  filterOptions.mealSections.length
+                "
+              >
+                <select id="mealSection" v-model="form.mealSection">
+                  <option value="__all__">All sections</option>
+                  <option value="" disabled>Select section</option>
+                  <option
+                    v-for="sec in filterOptions.mealSections"
+                    :key="sec"
+                    :value="sec"
+                  >
+                    {{ sec }}
+                  </option>
+                </select>
+              </template>
+              <template v-else>
+                <input
+                  id="mealSection"
+                  v-model="form.mealSection"
+                  type="text"
+                  placeholder="e.g. Espresso Drinks"
+                />
+              </template>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="density">Density</label>
-          <select id="density" v-model="form.density" required>
-            <option value="" disabled>Select</option>
-            <option>Low</option>
-            <option>High</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label for="category">Category</label>
+            <div class="control-field">
+              <span class="control-icon">🥗</span>
+              <template
+                v-if="
+                  filterOptions.categories && filterOptions.categories.length
+                "
+              >
+                <select id="category" v-model="form.category">
+                  <option value="__all__">All categories</option>
+                  <option value="" disabled>Select category</option>
+                  <option
+                    v-for="cat in filterOptions.categories"
+                    :key="cat"
+                    :value="cat"
+                  >
+                    {{ cat }}
+                  </option>
+                </select>
+              </template>
+              <template v-else>
+                <input
+                  id="category"
+                  v-model="form.category"
+                  type="text"
+                  placeholder="e.g. Smoothies"
+                />
+              </template>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="workoutTiming">Workout relation</label>
-          <select id="workoutTiming" v-model="form.workoutTiming" required>
-            <option value="" disabled>Select</option>
-            <option>Pre-workout</option>
-            <option>Post-workout</option>
-            <option>No workout</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label for="calories">Calories (target)</label>
+            <div class="control-field">
+              <span class="control-icon">🔥</span>
+              <input
+                id="calories"
+                v-model="form.calories"
+                type="number"
+                min="0"
+                placeholder="e.g. 450"
+              />
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="dietPreference">Diet preference</label>
-          <select id="dietPreference" v-model="form.dietPreference">
-            <option>Any</option>
-            <option>Vegetarian</option>
-            <option>Vegan</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label for="maxFat">Max fat (g)</label>
+            <div class="control-field">
+              <span class="control-icon">🧈</span>
+              <input
+                id="maxFat"
+                v-model="form.maxFat"
+                type="number"
+                min="0"
+                placeholder="e.g. 20"
+              />
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="maxCalories">Max calories (optional)</label>
-          <input
-            id="maxCalories"
-            v-model="form.maxCalories"
-            type="number"
-            min="50"
-            max="1200"
-            placeholder="e.g. 500"
-          />
-        </div>
+          <div class="form-group">
+            <label for="minProtein">Min protein (g)</label>
+            <div class="control-field">
+              <span class="control-icon">💪</span>
+              <input
+                id="minProtein"
+                v-model="form.minProtein"
+                type="number"
+                min="0"
+                placeholder="e.g. 20"
+              />
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="location">Preferred location (optional)</label>
-          <input
-            id="location"
-            v-model="form.location"
-            type="text"
-            placeholder="e.g. Bella Union"
-          />
-        </div>
+          <div class="form-group">
+            <label for="maxCarbs">Max carbs (g)</label>
+            <div class="control-field">
+              <span class="control-icon">🍞</span>
+              <input
+                id="maxCarbs"
+                v-model="form.maxCarbs"
+                type="number"
+                min="0"
+                placeholder="e.g. 40"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="maxSugar">Max sugar (g)</label>
+            <div class="control-field">
+              <span class="control-icon">🍯</span>
+              <input
+                id="maxSugar"
+                v-model="form.maxSugar"
+                type="number"
+                min="0"
+                placeholder="e.g. 20"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="maxSodium">Max sodium (mg)</label>
+            <div class="control-field">
+              <span class="control-icon">🧂</span>
+              <input
+                id="maxSodium"
+                v-model="form.maxSodium"
+                type="number"
+                min="0"
+                placeholder="e.g. 500"
+              />
+            </div>
+          </div>
         </div>
         <div class="form-actions">
-          <button class="btn btn--primary" type="submit" :disabled="shouldDisableGenerate">
+          <button
+            class="btn btn--primary"
+            type="submit"
+            :disabled="shouldDisableGenerate"
+          >
             {{ isSubmitting ? "Generating…" : "Generate suggestions" }}
           </button>
         </div>
@@ -357,13 +533,19 @@ onMounted(() => {
       </div>
 
       <div v-else-if="suggestions.length" class="results-grid">
-        <article v-for="meal in suggestions" :key="meal.title" class="result-card">
+        <article
+          v-for="meal in suggestions"
+          :key="meal.title"
+          class="result-card"
+        >
           <div class="result-card__header">
             <p class="result-card__tag">
-              {{ meal.tag || "AI recommendation" }} · {{ meal.density || "Balanced" }}
+              {{ meal.tag || "AI recommendation" }} ·
+              {{ meal.density || "Balanced" }}
             </p>
             <p class="result-card__time">
-              {{ meal.timeOfDay || "Anytime" }} · {{ lastFilters?.mealType || "Meal" }}
+              {{ meal.timeOfDay || "Anytime" }} ·
+              {{ lastFilters?.mealType || "Meal" }}
             </p>
           </div>
           <h3>{{ meal.sourceItem || meal.title }}</h3>
@@ -414,7 +596,9 @@ onMounted(() => {
       <p v-else-if="!suggestions.length && !isSubmitting" class="empty-state">
         No suggestions returned for those filters. Try again.
       </p>
-      <p v-if="errorMessage && !isSubmitting" class="error">{{ errorMessage }}</p>
+      <p v-if="errorMessage && !isSubmitting" class="error">
+        {{ errorMessage }}
+      </p>
     </section>
   </div>
 </template>

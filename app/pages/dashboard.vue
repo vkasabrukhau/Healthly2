@@ -1473,19 +1473,7 @@ watch(
                   ></textarea>
                 </div>
                 <div class="form__row">
-                  <input
-                    v-model="mealForm.portion"
-                    type="text"
-                    placeholder="Portion size (optional)"
-                  />
-                  <select v-model="mealForm.mealClass" required>
-                    <option value="" disabled>Select meal class</option>
-                    <option>Breakfast</option>
-                    <option>Lunch</option>
-                    <option>Dinner</option>
-                    <option>Snack</option>
-                    <option>Other</option>
-                  </select>
+                  <!-- Portion size and meal class inputs removed to simplify entry; defaults are used server-side -->
                 </div>
               </div>
 
@@ -1512,11 +1500,6 @@ watch(
                     placeholder="Where was it prepared?"
                     required
                   />
-                  <input
-                    v-model="mealForm.portion"
-                    type="text"
-                    placeholder="Portion size / weight"
-                  />
                 </div>
                 <div class="form__row">
                   <input
@@ -1525,14 +1508,7 @@ watch(
                     placeholder="Meal description"
                     required
                   />
-                  <select v-model="mealForm.mealClass" required>
-                    <option value="" disabled>Select meal class</option>
-                    <option>Breakfast</option>
-                    <option>Lunch</option>
-                    <option>Dinner</option>
-                    <option>Snack</option>
-                    <option>Other</option>
-                  </select>
+                  <!-- Meal class selection removed to simplify entry; defaults are used server-side -->
                 </div>
                 <div class="form__row">
                   <input
@@ -1552,20 +1528,6 @@ watch(
                     type="number"
                     min="0"
                     placeholder="Fat (g)"
-                  />
-                </div>
-                <div class="form__row">
-                  <input
-                    v-model="mealForm.sugar"
-                    type="number"
-                    min="0"
-                    placeholder="Sugar (g)"
-                  />
-                  <input
-                    v-model="mealForm.sodium"
-                    type="number"
-                    min="0"
-                    placeholder="Sodium (mg)"
                   />
                 </div>
               </div>
