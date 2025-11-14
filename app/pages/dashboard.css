@@ -130,7 +130,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .btn--ghost {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   color: #f8f7f4;
 }
 
@@ -332,6 +332,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.08);
   margin-top: 0.75rem;
+}
+
+.macro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.completion-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c7c3bb;
 }
 
 .weight-card .weight-value {

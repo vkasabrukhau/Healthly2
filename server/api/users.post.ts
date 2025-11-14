@@ -1,5 +1,35 @@
 import { getCollection } from "../utils/mongo";
+import { calculateBaselineMacros } from "../utils/nutrition";
 import { requireAuthenticatedUser } from "./utils/require-auth";
+
+const KG_PER_LB = 0.45359237;
+
+function parseExerciseFrequency(value?: string | number | null) {
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return Math.max(value, 0);
+  }
+
+  if (typeof value === "string") {
+    if (value.includes("-")) {
+      const [min, max] = value
+        .split("-")
+        .map((segment) => Number(segment.trim()))
+        .filter((num) => !Number.isNaN(num));
+      if (min != null && max != null) {
+        return (min + max) / 2;
+      }
+    }
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) return Math.max(numeric, 0);
+  }
+  return 0;
+}
+
+function normalizeGender(input?: string | null) {
+  if (!input) return "female";
+  const value = input.toLowerCase();
+  return value.startsWith("m") ? "male" : "female";
+}
 
 type UserProfileDoc = {
   userId: string;
@@ -9,10 +39,31 @@ type UserProfileDoc = {
   age: number;
   exerciseLevel: string;
   exerciseFrequency: string;
+  exerciseMinutesPerWeek?: number;
   photoDataUrl?: string;
   mealPlanMode?: "cut" | "maintain" | "bulk";
   currentWeight?: number;
+  weightKg?: number;
+  heightCm?: number;
   gender?: string;
+  baselineMacros?: Record<string, number>;
+  dayMetrics?: {
+    date: string;
+    metrics: Record<string, number>;
+    completionPercent?: number;
+  };
+  dayMetricsByDate?: Record<
+    string,
+    {
+      metrics: Record<string, number>;
+      completionPercent?: number;
+    }
+  >;
+  macroCompletionHistory?: Array<{
+    date: string;
+    percent: number;
+    recordedAt: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -24,7 +75,6 @@ export default defineEventHandler(async (event) => {
     firstName,
     lastName,
     dob,
-    // optional gender collected at onboarding
     gender,
     age,
     exerciseLevel,
@@ -77,6 +127,28 @@ export default defineEventHandler(async (event) => {
       initialWeight = Math.round(rawWeightKg * 2.2046226218 * 10) / 10;
     }
 
+    const weightKg =
+      typeof rawWeightKg === "number" && !Number.isNaN(rawWeightKg)
+        ? rawWeightKg
+        : typeof initialWeight === "number"
+        ? Math.round(initialWeight * KG_PER_LB * 10) / 10
+        : undefined;
+    const heightCmValue = (() => {
+      const raw = (body as any)?.heightCm;
+      if (typeof raw === "number" && !Number.isNaN(raw)) return raw;
+      if (typeof raw === "string") {
+        const parsed = Number(raw);
+        if (!Number.isNaN(parsed)) return parsed;
+      }
+      return undefined;
+    })();
+    const exerciseMinutesPerWeek =
+      Number((body as any).exerciseMinutesPerWeek) || 0;
+    const exerciseFreqPerWeek = parseExerciseFrequency(
+      (body as any).exerciseSessionsPerWeek ?? exerciseFrequency
+    );
+    const goal = ((body as any).mealPlanMode as any) || "maintain";
+
     const setObj: any = {
       firstName: (firstName as string).trim(),
       lastName: (lastName as string).trim(),
@@ -85,12 +157,46 @@ export default defineEventHandler(async (event) => {
       age: age as number,
       exerciseLevel,
       exerciseFrequency,
+      exerciseMinutesPerWeek,
+      exerciseFreqPerWeek,
+      heightCm: heightCmValue,
       photoDataUrl,
       mealPlanMode: (body as any).mealPlanMode ?? undefined,
       updatedAt: now,
     };
     if (typeof initialWeight === "number") {
       setObj.currentWeight = initialWeight;
+    }
+    if (typeof weightKg === "number") {
+      setObj.weightKg = Math.round(weightKg * 10) / 10;
+    }
+
+    const canComputeBaseline =
+      typeof weightKg === "number" &&
+      typeof heightCmValue === "number" &&
+      typeof age === "number" &&
+      goal;
+    if (canComputeBaseline) {
+      const baselineMacros = calculateBaselineMacros({
+        age: age as number,
+        gender: normalizeGender(gender as string),
+        heightCm: heightCmValue as number,
+        weightKg: weightKg as number,
+        exerciseFreqPerWeek,
+        exerciseMinutesPerWeek,
+        goal,
+      });
+      setObj.baselineMacros = baselineMacros;
+      const today = new Date().toISOString().slice(0, 10);
+      setObj.dayMetrics = {
+        date: today,
+        metrics: baselineMacros,
+      };
+      setObj.dayMetricsByDate = {
+        [today]: {
+          metrics: baselineMacros,
+        },
+      };
     }
 
     await collection.updateOne(

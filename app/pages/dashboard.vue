@@ -59,8 +59,12 @@ type ActivityEntry = {
   id?: string;
   type: string;
   duration: string;
+  durationMinutes?: number;
+  workoutType?: string;
+  intensity?: "low" | "moderate" | "high";
   date: string;
   calories: number;
+  caloriesBurned?: number;
   status: ActivityStatus;
   plannedAt?: string;
   completedAt?: string;
@@ -79,6 +83,40 @@ const DEFAULT_MACRO_GOALS: Array<{
   { key: "sugar", label: "Sugar", goal: 55, unit: "g" },
   { key: "sodium", label: "Sodium", goal: 2300, unit: "mg" },
 ];
+
+const baseline = ref<Record<string, number> | null>(null);
+const dayMetrics = ref<
+  | {
+      date: string;
+      metrics: Record<string, number>;
+      completionPercent?: number | null;
+    }
+  | null
+>(null);
+
+function metricsToGoals(
+  metrics: Record<string, number> | null | undefined
+): Array<{ key: MacroKey; label: string; goal: number; unit: string }> {
+  if (!metrics) return DEFAULT_MACRO_GOALS;
+  return DEFAULT_MACRO_GOALS.map((goal) => ({
+    ...goal,
+    goal: Number(metrics[goal.key] ?? goal.goal),
+  }));
+}
+
+function normalizeDurationMinutes(value?: string | number | null) {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string") {
+    const match = value.match(/(\d+(?:\.\d+)?)/);
+    if (match) return Number(match[1]);
+  }
+  return 0;
+}
+
+const today = new Date().toISOString().slice(0, 10);
+const selectedDate = ref(today);
+// Only allow submissions for today's date
+const isToday = computed(() => selectedDate.value === today);
 
 const macros = computed<MacroEntry[]>(() => {
   const totals = meals.value.reduce(
@@ -101,7 +139,11 @@ const macros = computed<MacroEntry[]>(() => {
     } as Record<MacroKey, number>
   );
 
-  const activeGoals = DEFAULT_MACRO_GOALS;
+  const activeMetrics =
+    dayMetrics.value && dayMetrics.value.date === selectedDate.value
+      ? dayMetrics.value.metrics
+      : baseline.value;
+  const activeGoals = metricsToGoals(activeMetrics);
   return activeGoals.map((goal) => ({
     ...goal,
     consumed: Number(totals[goal.key as MacroKey].toFixed(1)),
@@ -134,10 +176,6 @@ const weight = reactive({
 const weightForm = reactive({ weight: "" });
 const isWeightLoading = ref(false);
 
-const today = new Date().toISOString().slice(0, 10);
-const selectedDate = ref(today);
-// Only allow submissions for today's date
-const isToday = computed(() => selectedDate.value === today);
 const meals = ref<MealEntry[]>([]);
 const activities = ref<ActivityEntry[]>([]);
 const mealPlanMode = ref<"cut" | "maintain" | "bulk">("maintain");
@@ -163,8 +201,10 @@ const mealFormSource = ref<"duke" | "custom" | null>(null);
 
 const activityForm = reactive({
   type: "",
-  duration: "",
-  calories: "",
+  workoutType: "strength",
+  durationMinutes: "",
+  caloriesBurned: "",
+  intensity: "moderate" as "low" | "moderate" | "high",
   status: "Completed" as ActivityStatus,
 });
 
@@ -190,6 +230,40 @@ const macroCompletion = computed(() => {
     macros.value.length;
   return avg / 100;
 });
+
+const macroCompletionPercent = computed(() =>
+  Math.round(macroCompletion.value * 100)
+);
+
+const isSavingCompletion = ref(false);
+const completionSavedAt = ref<Date | null>(null);
+
+async function saveMacroCompletion() {
+  if (!userId.value || selectedDate.value !== today) return;
+  isSavingCompletion.value = true;
+  completionSavedAt.value = null;
+  try {
+    await $fetch("/api/day-metrics", {
+      method: "POST",
+      body: {
+        userId: userId.value,
+        date: selectedDate.value,
+        completionPercent: macroCompletionPercent.value,
+      },
+    });
+    if (dayMetrics.value && dayMetrics.value.date === selectedDate.value) {
+      dayMetrics.value = {
+        ...dayMetrics.value,
+        completionPercent: macroCompletionPercent.value,
+      };
+    }
+    completionSavedAt.value = new Date();
+  } catch (error) {
+    if (process.dev) console.error("Failed to save macro completion", error);
+  } finally {
+    isSavingCompletion.value = false;
+  }
+}
 
 const sleepQualityMultiplier = computed(() => {
   const label = (sleep.quality || "").toLowerCase();
@@ -445,8 +519,15 @@ const fetchActivitiesForDay = async () => {
       id: item.id || item._id?.toString?.(),
       type: item.type || "Activity",
       duration: item.duration || "",
+      durationMinutes:
+        typeof item.durationMinutes === "number"
+          ? item.durationMinutes
+          : normalizeDurationMinutes(item.duration),
+      workoutType: item.workoutType || item.type || "Activity",
+      intensity: item.intensity || "moderate",
       date: item.dayKey || normalizeDayString(item.date || selectedDate.value),
       calories: Number(item.calories) || 0,
+      caloriesBurned: Number(item.caloriesBurned || item.calories) || 0,
       status: item.status === "Planned" ? "Planned" : "Completed",
       plannedAt: item.plannedAt,
       completedAt: item.completedAt,
@@ -514,14 +595,42 @@ const fetchWaterForDay = async () => {
   }
 };
 
-// Fetch the persistent user profile (used for water goal defaults)
-async function fetchUserProfile() {
+// Fetch the persistent user profile (used for macro baselines + water goal)
+async function fetchUserProfile(dateOverride?: string) {
   if (!userId.value) return;
+  const dateParam = dateOverride || selectedDate.value;
   try {
-    if (process.dev) console.info("[debug] fetchUserProfile ->", userId.value);
-    const resp: any = await $fetch(`/api/users/${userId.value}`);
+    if (process.dev)
+      console.info(
+        "[debug] fetchUserProfile ->",
+        userId.value,
+        "date",
+        dateParam
+      );
+    const resp: any = await $fetch(`/api/users/${userId.value}`, {
+      params: { date: dateParam },
+    });
     const profile = resp?.profile ?? null;
-    // If the user has a persistent waterGoal and today's entry has no goal, use it as fallback
+    baseline.value = profile?.baselineMacros ?? null;
+    if (profile?.dayMetrics) {
+      dayMetrics.value = profile.dayMetrics;
+    } else if (baseline.value) {
+      dayMetrics.value = {
+        date: dateParam,
+        metrics: baseline.value,
+      };
+    } else {
+      dayMetrics.value = null;
+    }
+    if (
+      dayMetrics.value &&
+      dayMetrics.value.date === today &&
+      typeof dayMetrics.value.completionPercent === "number"
+    ) {
+      completionSavedAt.value = new Date();
+    } else if (dateParam === today) {
+      completionSavedAt.value = null;
+    }
     if (
       typeof profile?.waterGoal === "number" &&
       (!water.goal || water.goal === 0)
@@ -558,6 +667,7 @@ watch(
       console.info("[debug] watch triggered - uid/day", uid, day);
     }
     if (uid && day) {
+      fetchUserProfile(day);
       fetchMealsForDay();
       fetchActivitiesForDay();
       fetchSleepForDay();
@@ -579,6 +689,8 @@ watch(
       weight.today = null;
       weight.yesterday = null;
       weightForm.weight = "";
+      baseline.value = null;
+      dayMetrics.value = null;
     }
   },
   { immediate: true }
@@ -693,7 +805,8 @@ const addMeal = async () => {
 };
 
 const addActivity = async () => {
-  if (!activityForm.type || !activityForm.duration || !activityForm.calories) {
+  const durationMinutes = Number(activityForm.durationMinutes);
+  if (!activityForm.workoutType || !durationMinutes) {
     return;
   }
 
@@ -709,15 +822,23 @@ const addActivity = async () => {
     return;
   }
 
+  const activeType = activityForm.type?.trim() || activityForm.workoutType;
+  const durationLabel = `${durationMinutes} min`;
+  const caloriesBurned = Number(activityForm.caloriesBurned) || 0;
+
   try {
     const res: any = await $fetch("/api/activities", {
       method: "POST",
       body: {
         userId: userId.value,
-        type: activityForm.type,
-        duration: activityForm.duration,
+        type: activeType,
+        workoutType: activityForm.workoutType,
+        duration: durationLabel,
+        durationMinutes,
+        intensity: activityForm.intensity,
         date: activeDate,
-        calories: Number(activityForm.calories),
+        calories: caloriesBurned,
+        caloriesBurned,
         status: activityForm.status,
       },
     });
@@ -726,10 +847,14 @@ const addActivity = async () => {
     try {
       const newActivity: ActivityEntry = {
         id: res?.insertedId?.toString?.() ?? res?.insertedId,
-        type: activityForm.type,
-        duration: activityForm.duration,
+        type: activeType,
+        workoutType: activityForm.workoutType,
+        duration: durationLabel,
+        durationMinutes,
         date: activeDate,
-        calories: Number(activityForm.calories),
+        calories: caloriesBurned,
+        caloriesBurned,
+        intensity: activityForm.intensity,
         status: activityForm.status,
       };
       activities.value = [newActivity, ...activities.value];
@@ -743,8 +868,10 @@ const addActivity = async () => {
   }
 
   activityForm.type = "";
-  activityForm.duration = "";
-  activityForm.calories = "";
+  activityForm.durationMinutes = "";
+  activityForm.caloriesBurned = "";
+  activityForm.workoutType = "strength";
+  activityForm.intensity = "moderate";
   activityForm.status = "Completed";
 };
 
@@ -1045,6 +1172,24 @@ watch(
               </div>
             </li>
           </ul>
+          <div class="macro-actions">
+            <button
+              type="button"
+              class="btn btn--ghost"
+              :disabled="isSavingCompletion || !userId || !isToday"
+              @click="saveMacroCompletion"
+            >
+              {{
+                isSavingCompletion
+                  ? "Saving…"
+                  : `Save completion (${macroCompletionPercent}%)`
+              }}
+            </button>
+            <p v-if="completionSavedAt" class="completion-hint">
+              Logged at
+              {{ completionSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}
+            </p>
+          </div>
         </article>
       </section>
 
@@ -1489,9 +1634,21 @@ watch(
                 "
               >
                 <div>
-                  <p class="activity-list__name">{{ activity.type }}</p>
+                  <p class="activity-list__name">
+                    {{
+                      activity.type ||
+                      activity.workoutType ||
+                      "Activity session"
+                    }}
+                  </p>
                   <p class="activity-list__meta">
-                    {{ activity.date }} · {{ activity.duration }}
+                    {{ activity.date }} ·
+                    {{ activity.workoutType || "Session" }} ·
+                    <span v-if="activity.durationMinutes">
+                      {{ activity.durationMinutes }} min
+                    </span>
+                    <span v-else>{{ activity.duration }}</span>
+                    · {{ activity.intensity || "moderate" }}
                   </p>
                 </div>
                 <div class="activity-list__details">
@@ -1504,7 +1661,7 @@ watch(
                     {{ activity.status }}
                   </span>
                   <p class="activity-list__calories">
-                    {{ activity.calories }} cal
+                    {{ Math.round(activity.caloriesBurned || activity.calories || 0) }} cal
                   </p>
                   <button
                     type="button"
@@ -1535,26 +1692,38 @@ watch(
               <input
                 v-model="activityForm.type"
                 type="text"
-                placeholder="Activity type"
-                required
+                placeholder="Session name (optional)"
               />
-              <input
-                v-model="activityForm.duration"
-                type="text"
-                placeholder="Duration e.g. 25 min"
-                required
-              />
+              <select v-model="activityForm.workoutType" required>
+                <option value="strength">Strength</option>
+                <option value="endurance">Endurance</option>
+                <option value="mixed">Mixed</option>
+                <option value="walking">Walking</option>
+                <option value="hiit">HIIT</option>
+              </select>
             </div>
-            <div class="form__row form__row--date-note">
+            <div class="form__row">
               <input
-                v-model="activityForm.calories"
+                v-model="activityForm.durationMinutes"
+                type="number"
+                min="5"
+                max="300"
+                placeholder="Duration (minutes)"
+                required
+              />
+              <select v-model="activityForm.intensity" required>
+                <option value="low">Low intensity</option>
+                <option value="moderate">Moderate</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div class="form__row">
+              <input
+                v-model="activityForm.caloriesBurned"
                 type="number"
                 min="0"
-                placeholder="Calories"
-                required
+                placeholder="Calories burned (optional)"
               />
-            </div>
-            <div class="form__row form__row--compact">
               <select
                 v-model="activityForm.status"
                 aria-label="Completion state"
@@ -1588,4 +1757,3 @@ watch(
 </template>
 
 <style scoped src="./dashboard.css"></style>
-

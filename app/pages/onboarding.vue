@@ -74,10 +74,34 @@ const maintenanceOptions = [
   },
 ];
 
+const genderOptions = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+];
+
+const mealPlanModes = [
+  {
+    value: "cut",
+    label: "Cut",
+    helper: "Calorie deficit for fat loss",
+  },
+  {
+    value: "maintain",
+    label: "Maintain",
+    helper: "Balanced intake for status quo",
+  },
+  {
+    value: "bulk",
+    label: "Bulk",
+    helper: "Slight surplus to build muscle",
+  },
+];
+
 const form = reactive({
   firstName: "",
   lastName: "",
   dob: "",
+  gender: "",
   weightLbs: "",
   heightFeet: "",
   heightInches: "",
@@ -86,6 +110,7 @@ const form = reactive({
   exerciseLevel: exerciseLevels?.[1]?.value ?? exerciseLevels?.[0]?.value ?? "",
   exerciseFrequency:
     frequencyOptions?.[1]?.value ?? frequencyOptions?.[0]?.value ?? "",
+  exerciseMinutesPerWeek: "",
   mealPlanMode: "maintain",
 });
 
@@ -119,6 +144,27 @@ const heightCm = computed(() => {
   return cm > 0 ? Math.round(cm * 10) / 10 : null;
 });
 
+const weightKg = computed(() => {
+  const lbs = Number(form.weightLbs);
+  if (!lbs) return null;
+  return Math.round(lbs * 0.45359237 * 10) / 10;
+});
+
+const exerciseSessionsPerWeek = computed(() => {
+  const value = form.exerciseFrequency;
+  if (!value) return 0;
+  if (value.includes("-")) {
+    const [min, max] = value
+      .split("-")
+      .map((segment) => Number(segment.trim()))
+      .filter((num) => !Number.isNaN(num));
+    if (min != null && max != null) return (min + max) / 2;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) return numeric;
+  return 0;
+});
+
 const levelLabel = computed(
   () => exerciseLevels.find((o) => o.value === form.exerciseLevel)?.label
 );
@@ -130,10 +176,13 @@ const isFormComplete = computed(() =>
   Boolean(
     form.firstName &&
       form.lastName &&
+      form.gender &&
       form.dob &&
       age.value !== "--" &&
       form.weightLbs &&
       form.heightFeet &&
+      form.exerciseMinutesPerWeek !== "" &&
+      form.exerciseMinutesPerWeek !== null &&
       form.maintenance &&
       form.exerciseLevel &&
       form.exerciseFrequency
@@ -155,6 +204,9 @@ onMounted(async () => {
     const cu = (user.value as any) || {};
     form.firstName = form.firstName || cu?.firstName || cu?.given_name || "";
     form.lastName = form.lastName || cu?.lastName || cu?.family_name || "";
+    if (!form.gender && cu?.gender) {
+      form.gender = cu.gender.toLowerCase().startsWith("m") ? "male" : "female";
+    }
 
     try {
       const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
@@ -176,6 +228,9 @@ watch(
     const cu = (user.value as any) || {};
     form.firstName = form.firstName || cu?.firstName || cu?.given_name || "";
     form.lastName = form.lastName || cu?.lastName || cu?.family_name || "";
+    if (!form.gender && cu?.gender) {
+      form.gender = cu.gender.toLowerCase().startsWith("m") ? "male" : "female";
+    }
     try {
       const resp = await $fetch(`/api/users/${encodeURIComponent(uid)}`);
       if (resp && resp.exists) {
@@ -226,11 +281,15 @@ const handleSubmit = async () => {
         age: Number(age.value),
         // onboarding now collects pounds (lbs) as the canonical input
         weight: Number(form.weightLbs),
+        weightKg: weightKg.value,
         heightCm: heightCm.value ?? null,
         maintenance: form.maintenance,
         exerciseLevel: form.exerciseLevel,
         exerciseFrequency: form.exerciseFrequency,
+        exerciseMinutesPerWeek: Number(form.exerciseMinutesPerWeek) || 0,
+        exerciseSessionsPerWeek: exerciseSessionsPerWeek.value,
         mealPlanMode: form.mealPlanMode,
+        gender: form.gender,
       },
     });
   } catch (error) {
@@ -307,6 +366,23 @@ const handleSubmit = async () => {
               <small v-if="attemptedSubmit && !form.lastName"
                 >Enter your last name.</small
               >
+            </label>
+            <label class="full-span">
+              <span>Gender</span>
+              <div class="option-toggle">
+                <button
+                  v-for="option in genderOptions"
+                  :key="option.value"
+                  type="button"
+                  :class="['toggle-chip', { active: form.gender === option.value }]"
+                  @click="form.gender = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+              <small v-if="attemptedSubmit && !form.gender">
+                Select the gender that best matches you.
+              </small>
             </label>
             <label>
               <span>Weight (lbs)</span>
@@ -403,28 +479,37 @@ const handleSubmit = async () => {
               </select>
             </label>
             <label>
+              <span>Approx. minutes of exercise per week</span>
+              <input
+                v-model.number="form.exerciseMinutesPerWeek"
+                type="number"
+                min="0"
+                max="2000"
+                step="5"
+                placeholder="e.g. 180"
+                required
+              />
+              <small v-if="attemptedSubmit && !form.exerciseMinutesPerWeek">
+                Enter how many minutes you usually train each week.
+              </small>
+            </label>
+            <label>
               <span>Meal plan mode</span>
-              <div style="display: flex; gap: 0.5rem">
-                <label style="display: flex; align-items: center; gap: 0.4rem">
-                  <input type="radio" v-model="form.mealPlanMode" value="cut" />
-                  <small>Cut</small>
-                </label>
-                <label style="display: flex; align-items: center; gap: 0.4rem">
-                  <input
-                    type="radio"
-                    v-model="form.mealPlanMode"
-                    value="maintain"
-                  />
-                  <small>Maintain</small>
-                </label>
-                <label style="display: flex; align-items: center; gap: 0.4rem">
-                  <input
-                    type="radio"
-                    v-model="form.mealPlanMode"
-                    value="bulk"
-                  />
-                  <small>Bulk</small>
-                </label>
+              <div class="option-toggle option-toggle--stacked">
+                <button
+                  v-for="mode in mealPlanModes"
+                  :key="mode.value"
+                  type="button"
+                  :class="[
+                    'toggle-chip',
+                    'toggle-chip--stacked',
+                    { active: form.mealPlanMode === mode.value },
+                  ]"
+                  @click="form.mealPlanMode = mode.value"
+                >
+                  <span class="toggle-chip__label">{{ mode.label }}</span>
+                  <small class="toggle-chip__hint">{{ mode.helper }}</small>
+                </button>
               </div>
             </label>
           </div>
@@ -446,6 +531,16 @@ const handleSubmit = async () => {
             <p class="label">Name</p>
             <p class="value">
               {{ form.firstName || "—" }} {{ form.lastName || "" }}
+            </p>
+          </li>
+          <li>
+            <p class="label">Gender</p>
+            <p class="value">
+              {{
+                form.gender
+                  ? genderOptions.find((opt) => opt.value === form.gender)?.label
+                  : "—"
+              }}
             </p>
           </li>
           <li>
@@ -491,12 +586,24 @@ const handleSubmit = async () => {
             <p class="value">{{ frequencyLabel || "—" }}</p>
           </li>
           <li>
-            <p class="label">Exercise level</p>
-            <p class="value">{{ levelLabel || "—" }}</p>
+            <p class="label">Weekly minutes</p>
+            <p class="value">
+              {{
+                form.exerciseMinutesPerWeek !== "" &&
+                form.exerciseMinutesPerWeek !== null
+                  ? form.exerciseMinutesPerWeek + " min"
+                  : "—"
+              }}
+            </p>
           </li>
           <li>
-            <p class="label">Frequency</p>
-            <p class="value">{{ frequencyLabel || "—" }}</p>
+            <p class="label">Goal</p>
+            <p class="value">
+              {{
+                mealPlanModes.find((mode) => mode.value === form.mealPlanMode)
+                  ?.label || "—"
+              }}
+            </p>
           </li>
         </ul>
         <p class="card__sub">
@@ -509,4 +616,3 @@ const handleSubmit = async () => {
 </template>
 
 <style scoped src="./onboarding.css"></style>
-
