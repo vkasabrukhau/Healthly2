@@ -169,7 +169,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 
   .dial-card {
-    max-width: 440px;
+    max-width: 620px;
   }
 }
 
@@ -190,18 +190,37 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .dial-card {
-  min-height: 360px;
+  min-height: 480px;
+  /* Ensure content fills the card and the note stays at the bottom */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .dial-chart {
   width: 100%;
-  height: 280px;
+  height: 380px;
+  max-height: 520px;
 }
 
 .dial-card__body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  /* Let the dial take available space and center it vertically/horizontally */
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 0.5rem;
+}
+
+/* Slightly increase header and note spacing so dial dominates the card */
+.dial-card header {
+  margin-bottom: 0.25rem;
+}
+
+.dial-card__note {
+  margin-top: 0.75rem;
 }
 
 .dial-metrics {
@@ -265,6 +284,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   min-height: 120px; /* reduced to shrink card height */
   max-height: 420px; /* prevent runaway growth */
   overflow: auto;
+}
+
+/* Layout each meal row as a horizontal row so info sits left and actions
+   (calories + delete) sit to the right, side-by-side. */
+.meals-list > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
 }
 
 .macros-card ul {
@@ -603,7 +632,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .meals-list__stats {
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 88px; /* reserve small space for calories + button */
 }
 
 .activity-pill {

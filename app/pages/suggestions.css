@@ -132,6 +132,14 @@
   min-width: 180px;
 }
 
+/* Ensure controls inside the control-field fill the remaining space next to the icon */
+.control-field select,
+.control-field input {
+  flex: 1 1 0;
+  min-width: 0; /* allow shrinking inside flex container */
+  width: 100%;
+}
+
 .form-group select:focus,
 .form-group input:focus {
   outline: none;

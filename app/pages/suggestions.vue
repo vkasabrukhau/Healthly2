@@ -65,6 +65,32 @@ const filterOptions = reactive({
   locations: [] as string[],
   mealSections: [] as string[],
   categories: [] as string[],
+  locationSections: {} as Record<string, string[]>,
+  sectionLocations: {} as Record<string, string[]>,
+});
+
+const availableLocations = computed(() => {
+  const section = form.mealSection;
+  if (section && section !== "__all__") {
+    const allowed = filterOptions.sectionLocations[section] || [];
+    if (allowed.length) {
+      return filterOptions.locations.filter((loc) => allowed.includes(loc));
+    }
+  }
+  return filterOptions.locations;
+});
+
+const availableMealSections = computed(() => {
+  const location = form.location;
+  if (location && location !== "__all__") {
+    const allowed = filterOptions.locationSections[location] || [];
+    if (allowed.length) {
+      return filterOptions.mealSections.filter((sec) =>
+        allowed.includes(sec)
+      );
+    }
+  }
+  return filterOptions.mealSections;
 });
 
 // Make filters optional — only require an authenticated user to generate
@@ -164,6 +190,8 @@ async function fetchMetadata() {
     filterOptions.locations = resp?.locations ?? [];
     filterOptions.mealSections = resp?.mealSections ?? [];
     filterOptions.categories = resp?.categories ?? [];
+    filterOptions.locationSections = resp?.locationSections ?? {};
+    filterOptions.sectionLocations = resp?.sectionLocations ?? {};
   } catch (err: any) {
     metadataError.value =
       err?.statusMessage || err?.message || "Failed to load filter options.";
@@ -171,6 +199,38 @@ async function fetchMetadata() {
     metadataLoading.value = false;
   }
 }
+
+watch(
+  () => form.location,
+  (location) => {
+    if (!location || location === "__all__") return;
+    const allowed = filterOptions.locationSections[location] ?? [];
+    if (
+      form.mealSection &&
+      form.mealSection !== "__all__" &&
+      allowed.length &&
+      !allowed.includes(form.mealSection)
+    ) {
+      form.mealSection = "__all__";
+    }
+  }
+);
+
+watch(
+  () => form.mealSection,
+  (section) => {
+    if (!section || section === "__all__") return;
+    const allowed = filterOptions.sectionLocations[section] ?? [];
+    if (
+      form.location &&
+      form.location !== "__all__" &&
+      allowed.length &&
+      !allowed.includes(form.location)
+    ) {
+      form.location = "__all__";
+    }
+  }
+);
 
 watch(
   () => userId.value,
@@ -310,14 +370,12 @@ onMounted(() => {
             <label for="location">Location</label>
             <div class="control-field">
               <span class="control-icon">🏬</span>
-              <template
-                v-if="filterOptions.locations && filterOptions.locations.length"
-              >
+              <template v-if="availableLocations.length">
                 <select id="location" v-model="form.location">
                   <option value="__all__">All locations</option>
                   <option value="" disabled>Select location</option>
                   <option
-                    v-for="loc in filterOptions.locations"
+                    v-for="loc in availableLocations"
                     :key="loc"
                     :value="loc"
                   >
@@ -340,17 +398,12 @@ onMounted(() => {
             <label for="mealSection">Meal section</label>
             <div class="control-field">
               <span class="control-icon">📋</span>
-              <template
-                v-if="
-                  filterOptions.mealSections &&
-                  filterOptions.mealSections.length
-                "
-              >
+              <template v-if="availableMealSections.length">
                 <select id="mealSection" v-model="form.mealSection">
                   <option value="__all__">All sections</option>
                   <option value="" disabled>Select section</option>
                   <option
-                    v-for="sec in filterOptions.mealSections"
+                    v-for="sec in availableMealSections"
                     :key="sec"
                     :value="sec"
                   >

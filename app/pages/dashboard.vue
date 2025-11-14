@@ -241,8 +241,9 @@ const mealFormSource = ref<"duke" | "custom" | null>(null);
 
 const activityForm = reactive({
   type: "",
-  duration: "",
-  calories: "",
+  // duration and calories are numeric: duration is minutes
+  duration: 0,
+  calories: 0,
   status: "Completed" as ActivityStatus,
 });
 
@@ -795,7 +796,12 @@ const addMeal = async () => {
 };
 
 const addActivity = async () => {
-  if (!activityForm.type || !activityForm.duration || !activityForm.calories) {
+  // Require a type and numeric duration (> 0 minutes) and numeric calories (>= 0)
+  if (
+    !activityForm.type ||
+    !(Number.isFinite(activityForm.duration) && activityForm.duration > 0) ||
+    !(Number.isFinite(activityForm.calories) && activityForm.calories >= 0)
+  ) {
     return;
   }
 
@@ -817,7 +823,8 @@ const addActivity = async () => {
       body: {
         userId: userId.value,
         type: activityForm.type,
-        duration: activityForm.duration,
+        // send duration as minutes (string) to match stored shape
+        duration: String(activityForm.duration),
         date: activeDate,
         calories: Number(activityForm.calories),
         status: activityForm.status,
@@ -826,7 +833,7 @@ const addActivity = async () => {
         activitiesToday: [
           {
             type: activityForm.type,
-            duration: activityForm.duration,
+            duration: String(activityForm.duration),
             calories: Number(activityForm.calories),
             status: activityForm.status,
           },
@@ -846,7 +853,7 @@ const addActivity = async () => {
       const newActivity: ActivityEntry = {
         id: res?.insertedId?.toString?.() ?? res?.insertedId,
         type: activityForm.type,
-        duration: activityForm.duration,
+        duration: String(activityForm.duration),
         date: activeDate,
         calories: Number(activityForm.calories),
         status: activityForm.status,
@@ -862,8 +869,8 @@ const addActivity = async () => {
   }
 
   activityForm.type = "";
-  activityForm.duration = "";
-  activityForm.calories = "";
+  activityForm.duration = 0;
+  activityForm.calories = 0;
   activityForm.status = "Completed";
 };
 
@@ -1533,7 +1540,9 @@ useSeoMeta({
                   <button
                     type="button"
                     class="chip-button"
-                    v-if="activity.id && isToday"
+                    v-if="
+                      activity.id && isToday && activity.status === 'Planned'
+                    "
                     @click="toggleActivityStatus(activity)"
                   >
                     {{
@@ -1543,7 +1552,9 @@ useSeoMeta({
                     }}
                   </button>
                   <button
-                    v-if="activity.id && isToday"
+                    v-if="
+                      activity.id && isToday && activity.status === 'Planned'
+                    "
                     type="button"
                     class="icon-button"
                     @click="deleteActivity(activity)"
@@ -1563,18 +1574,23 @@ useSeoMeta({
                 required
               />
               <input
-                v-model="activityForm.duration"
-                type="text"
-                placeholder="Duration e.g. 25 min"
+                v-model.number="activityForm.duration"
+                type="number"
+                min="1"
+                inputmode="numeric"
+                placeholder="Minutes"
+                aria-label="Duration in minutes"
                 required
               />
             </div>
             <div class="form__row form__row--date-note">
               <input
-                v-model="activityForm.calories"
+                v-model.number="activityForm.calories"
                 type="number"
                 min="0"
+                inputmode="numeric"
                 placeholder="Calories"
+                aria-label="Calories"
                 required
               />
             </div>
