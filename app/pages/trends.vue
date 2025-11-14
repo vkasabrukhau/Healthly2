@@ -86,7 +86,6 @@ function setRange(r: "week" | "month") {
 async function fetchTrendData(days: number) {
   const uid = userId.value;
   if (!uid) throw new Error("no-user");
-
   // Build the date strings in order
   const dates = makeLabels(days);
 
@@ -95,37 +94,30 @@ async function fetchTrendData(days: number) {
     { params: { days } }
   ).catch(() => null);
 
-  // Collect all weight history points in the requested date window. Where
-  // possible use the recordedAt timestamp so multiple points per day are
-  // preserved; fall back to dayKey at midnight when recordedAt is missing.
-  const weightPoints: Array<[string, number]> = [];
-  if (historyResp && Array.isArray(historyResp.history)) {
-    historyResp.history.forEach((entry: any) => {
+  // Parse weight history into time-series points limited to our date window.
+  const history = Array.isArray(historyResp?.history)
+    ? historyResp.history
+    : [];
+  const parsedPoints = history
+    .map((entry: any) => {
       const value = Number(entry?.weight);
-      if (!Number.isFinite(value)) return;
-      // prefer recordedAt (full ISO timestamp) so multiple entries per day are preserved
-      let t: string | null = null;
-      if (entry?.recordedAt) t = entry.recordedAt;
-      else if (entry?.dayKey) t = `${entry.dayKey}T00:00:00.000Z`;
-      if (!t) return;
-      // only include points that fall inside our date window (inclusive)
-      try {
-        const dt = new Date(t);
-        // normalize to ISO date string for comparison
-        const iso = dt.toISOString();
-        const dateOnly = iso.slice(0, 10);
-        if (dates.includes(dateOnly)) {
-          weightPoints.push([iso, value]);
-        }
-      } catch (e) {
-        // ignore parse errors
-      }
-    });
-    // sort points by timestamp ascending
-    weightPoints.sort(
-      (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
-    );
-  }
+      if (!Number.isFinite(value)) return null;
+      const raw =
+        entry?.recordedAt ||
+        (entry?.dayKey ? `${entry.dayKey}T00:00:00.000Z` : null);
+      if (!raw) return null;
+      const dt = new Date(raw);
+      if (Number.isNaN(dt.getTime())) return null;
+      const iso = dt.toISOString();
+      return { iso, date: iso.slice(0, 10), value };
+    })
+    .filter(Boolean) as Array<{ iso: string; date: string; value: number }>;
+
+  // Keep points only inside the requested date range and sort by time.
+  const weightPoints = parsedPoints.filter((p) => dates.includes(p.date));
+  weightPoints.sort(
+    (a, b) => new Date(a.iso).getTime() - new Date(b.iso).getTime()
+  );
 
   // For each date, fetch sleep, food and water in parallel. Weight series uses
   // the time-series points we built above (may have multiple points per day).
@@ -183,29 +175,31 @@ async function fetchTrendData(days: number) {
   });
 
   const results = await Promise.all(promises);
-
-  // Assign the collected weight time-series points. If there are no
-  // recorded points for the range, fall back to the carry-forward daily
-  // behavior and synthesize one point per day using the last known value.
   if (weightPoints.length > 0) {
-    weightData.value = weightPoints;
+    weightData.value = weightPoints.map(
+      (p) => [p.iso, p.value] as [string, number]
+    );
   } else {
-    // synthesize daily carry-forward values (preserves previous behavior)
-    const weightsByDate: Record<string, number | null> = {};
-    let lastKnown: number | null = null;
-    // attempt to re-build historyMap from results (this is fallback)
-    const historyMap = new Map<string, number>();
-    results.forEach((entry) => {
-      // no-op: results don't contain historical weight values in this flow
-    });
-    for (const d of dates) {
-      // use lastKnown (unchanged) so daily points will be null or lastKnown
-      weightsByDate[d] = lastKnown;
-      if (weightsByDate[d] != null) {
-        weightPoints.push([`${d}T00:00:00.000Z`, weightsByDate[d] as number]);
+    // synthesize a carry-forward daily series: build a day->lastValue map
+    const dayToLatest = new Map<string, number>();
+    // pick latest value per day from parsedPoints
+    parsedPoints.forEach((p) => {
+      const prev = dayToLatest.get(p.date);
+      if (
+        prev == null ||
+        new Date(p.iso).getTime() >
+          new Date(`${p.date}T00:00:00.000Z`).getTime()
+      ) {
+        dayToLatest.set(p.date, p.value);
       }
+    });
+    const synthesized: Array<[string, number]> = [];
+    let last: number | null = null;
+    for (const d of dates) {
+      if (dayToLatest.has(d)) last = dayToLatest.get(d) as number;
+      if (last != null) synthesized.push([`${d}T12:00:00.000Z`, last]);
     }
-    weightData.value = weightPoints;
+    weightData.value = synthesized;
   }
   sleepData.value = results.map((r) => Number(r.sleep || 0));
   // Food completion uses a default daily calorie target (2200) if not available
@@ -463,45 +457,4 @@ useHead({ title: "Healthly | Trends" });
   </div>
 </template>
 
-<style scoped>
-.page {
-  min-height: 100vh;
-  padding: 64px clamp(1.25rem, 5vw, 5rem) 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 56px;
-}
-.trends-page .intro {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-/* meal plan control styles moved to dashboard page */
-
-.trends-grid {
-  margin-top: 1.25rem;
-  /* Stack charts vertically and make each chart full-width */
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.trend-chart {
-  width: 100%;
-  height: 360px; /* increased height for full-width visuals */
-}
-
-.chart-card {
-  width: 100%;
-  min-height: 420px;
-}
-
-@media (max-width: 640px) {
-  .trends-page .intro {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>
+<style scoped src="./trends.css"></style>

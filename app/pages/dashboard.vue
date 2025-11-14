@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch } from "vue";
+import type { Ref } from "vue";
 import { useUser } from "#imports";
 // Ensure echarts runtime pieces are registered so VChart can render on this page
 import { use } from "echarts/core";
@@ -446,30 +447,44 @@ const normalizeDayString = (value: string) => {
 const isMealsLoading = ref(false);
 const isActivitiesLoading = ref(false);
 
-const fetchMealsForDay = async () => {
-  if (!userId.value || !selectedDate.value) return;
-  isMealsLoading.value = true;
-  try {
-    const url = `/api/foods/${userId.value}`;
-    if (process.dev) {
-      // eslint-disable-next-line no-console
-      console.info("[debug] fetchMealsForDay ->", {
-        url,
-        date: selectedDate.value,
-        userId: userId.value,
-      });
-    }
-    const response = await $fetch(url, {
-      params: { date: selectedDate.value },
-    });
-    const items = Array.isArray((response as any)?.items)
-      ? (response as any).items
-      : [];
-    if (process.dev) {
-      // eslint-disable-next-line no-console
-      console.info("[debug] fetchMealsForDay response items", items.length);
-    }
+type DayFetcherConfig<T> = {
+  endpoint: string;
+  loadingRef?: Ref<boolean> | { value: boolean } | undefined;
+  onSuccess: (payload: T) => void;
+  onError?: (err: any) => void;
+};
 
+const makeDayFetcher = <T>({
+  endpoint,
+  loadingRef,
+  onSuccess,
+  onError,
+}: DayFetcherConfig<T>) => {
+  return async () => {
+    if (!userId.value || !selectedDate.value) return;
+    if (loadingRef) loadingRef.value = true;
+    try {
+      const payload = await $fetch(
+        `/api/${endpoint}/${encodeURIComponent(userId.value)}` as const,
+        {
+          params: { date: selectedDate.value },
+        }
+      );
+      onSuccess(payload as T);
+    } catch (error) {
+      if (process.dev) console.error(`Failed to load ${endpoint}`, error);
+      onError?.(error);
+    } finally {
+      if (loadingRef) loadingRef.value = false;
+    }
+  };
+};
+
+const fetchMealsForDay = makeDayFetcher<any>({
+  endpoint: "foods",
+  loadingRef: isMealsLoading,
+  onSuccess: (response) => {
+    const items = Array.isArray(response?.items) ? response.items : [];
     meals.value = items.map((item: any) => ({
       id: item.id || item._id?.toString?.(),
       time: item.time || "--:--",
@@ -489,40 +504,17 @@ const fetchMealsForDay = async () => {
       portion: item.portion || "",
       mealClass: item.mealClass || "",
     }));
-  } catch (error) {
-    if (process.dev) console.error("Failed to load meals", error);
+  },
+  onError: () => {
     meals.value = [];
-  } finally {
-    isMealsLoading.value = false;
-  }
-};
+  },
+});
 
-const fetchActivitiesForDay = async () => {
-  if (!userId.value || !selectedDate.value) return;
-  isActivitiesLoading.value = true;
-  try {
-    const url = `/api/activities/${userId.value}`;
-    if (process.dev) {
-      // eslint-disable-next-line no-console
-      console.info("[debug] fetchActivitiesForDay ->", {
-        url,
-        date: selectedDate.value,
-        userId: userId.value,
-      });
-    }
-    const response = await $fetch(url, {
-      params: { date: selectedDate.value },
-    });
-    const items = Array.isArray((response as any)?.items)
-      ? (response as any).items
-      : [];
-    if (process.dev) {
-      // eslint-disable-next-line no-console
-      console.info(
-        "[debug] fetchActivitiesForDay response items",
-        items.length
-      );
-    }
+const fetchActivitiesForDay = makeDayFetcher<any>({
+  endpoint: "activities",
+  loadingRef: isActivitiesLoading,
+  onSuccess: async (response) => {
+    const items = Array.isArray(response?.items) ? response.items : [];
     activities.value = items.map((item: any) => ({
       id: item.id || item._id?.toString?.(),
       type: item.type || "Activity",
@@ -539,26 +531,21 @@ const fetchActivitiesForDay = async () => {
       if (process.dev)
         console.warn("Failed to refresh profile after activities", refreshErr);
     }
-  } catch (error) {
-    if (process.dev) console.error("Failed to load activities", error);
+  },
+  onError: () => {
     activities.value = [];
-  } finally {
-    isActivitiesLoading.value = false;
-  }
-};
+  },
+});
 
 // Sleep & water loaders (defined here so they're available to the watchers below)
 const isSleepLoading = ref(false);
 const isWaterLoading = ref(false);
 
-const fetchSleepForDay = async () => {
-  if (!userId.value || !selectedDate.value) return;
-  isSleepLoading.value = true;
-  try {
-    const response = await $fetch(`/api/sleep/${userId.value}`, {
-      params: { date: selectedDate.value },
-    });
-    const entry = (response as any)?.entry;
+const fetchSleepForDay = makeDayFetcher<any>({
+  endpoint: "sleep",
+  loadingRef: isSleepLoading,
+  onSuccess: (response) => {
+    const entry = response?.entry;
     if (entry) {
       sleep.hours = Number(entry.hours) || 0;
       sleep.quality = entry.quality || "";
@@ -571,21 +558,14 @@ const fetchSleepForDay = async () => {
     sleepForm.hours = sleep.hours ? String(sleep.hours) : "";
     sleepForm.quality = sleep.quality;
     sleepForm.note = sleep.note;
-  } catch (error) {
-    if (process.dev) console.error("Failed to load sleep", error);
-  } finally {
-    isSleepLoading.value = false;
-  }
-};
+  },
+});
 
-const fetchWaterForDay = async () => {
-  if (!userId.value || !selectedDate.value) return;
-  isWaterLoading.value = true;
-  try {
-    const response = await $fetch(`/api/water/${userId.value}`, {
-      params: { date: selectedDate.value },
-    });
-    const entry = (response as any)?.entry;
+const fetchWaterForDay = makeDayFetcher<any>({
+  endpoint: "water",
+  loadingRef: isWaterLoading,
+  onSuccess: (response) => {
+    const entry = response?.entry;
     if (entry) {
       water.consumed = Number(entry.consumed) || 0;
       water.goal = Number(entry.goal) || 0;
@@ -595,12 +575,8 @@ const fetchWaterForDay = async () => {
     }
     waterForm.consumed = water.consumed ? String(water.consumed) : "";
     waterForm.goal = water.goal ? String(water.goal) : "";
-  } catch (error) {
-    if (process.dev) console.error("Failed to load water", error);
-  } finally {
-    isWaterLoading.value = false;
-  }
-};
+  },
+});
 
 // Fetch the persistent user profile (macro baselines + water goal)
 async function fetchUserProfile(dateOverride?: string) {
@@ -709,24 +685,17 @@ watch(
   { immediate: true }
 );
 
-async function fetchWeightForDay() {
-  if (!userId.value || !selectedDate.value) return;
-  isWeightLoading.value = true;
-  try {
-    const response = await $fetch(`/api/weight/${userId.value}`, {
-      params: { date: selectedDate.value },
-    });
-    const today = (response as any)?.today;
-    const previous = (response as any)?.previous;
-    const history = Array.isArray((response as any)?.history)
-      ? (response as any)?.history
-      : [];
-    // API returns today's weight as the user's currentWeight (preferred)
+const fetchWeightForDay = makeDayFetcher<any>({
+  endpoint: "weight",
+  loadingRef: isWeightLoading,
+  onSuccess: (response) => {
+    const today = response?.today;
+    const previous = response?.previous;
+    const history = Array.isArray(response?.history) ? response.history : [];
     if (typeof today === "number") {
       weight.today = Number(today);
-    } else if ((response as any)?.entry) {
-      // fallback to historical entry if currentWeight is not set
-      weight.today = Number((response as any).entry.weight);
+    } else if (response?.entry) {
+      weight.today = Number(response.entry.weight);
     } else {
       weight.today = null;
     }
@@ -736,12 +705,8 @@ async function fetchWeightForDay() {
       recordedAt: entry.recordedAt,
     }));
     weightForm.weight = weight.today != null ? String(weight.today) : "";
-  } catch (error) {
-    if (process.dev) console.error("Failed to load weight", error);
-  } finally {
-    isWeightLoading.value = false;
-  }
-}
+  },
+});
 
 const addMeal = async () => {
   if (mealFormStage.value !== "details" || !mealFormSource.value) {
@@ -1646,883 +1611,4 @@ useSeoMeta({
   </SignedOut>
 </template>
 
-<style scoped>
-:global(body) {
-  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  margin: 0;
-  background: #05070a;
-  color: #f8f7f4;
-}
-
-.page {
-  min-height: 100vh;
-  padding: 64px clamp(1.25rem, 5vw, 5rem) 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 56px;
-}
-
-.intro {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.intro h1 {
-  margin: 0.5rem 0 1rem;
-  font-size: clamp(2.2rem, 5vw, 3.8rem);
-}
-
-.intro p {
-  margin: 0;
-  max-width: 640px;
-  color: #d9d7d2;
-}
-
-.day-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 220px;
-}
-
-/* Make the native calendar icon visible on dark backgrounds (WebKit) */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(2);
-}
-
-.mealplan-control {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-  min-width: 220px;
-}
-
-.mealplan-label {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.7rem;
-  color: #ffb08f; /* match viewing date label color */
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.plan-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.plan-buttons .btn {
-  padding: 0.5rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #f8f7f4;
-}
-
-/* Subtle blue hue for the selected plan button */
-.plan-buttons .btn.active {
-  background: linear-gradient(120deg, #4facfe, #3b82f6);
-  color: white;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.2);
-}
-
-.day-selector label {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.7rem;
-  color: #ffb08f;
-}
-
-.eyebrow,
-.card__eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.28em;
-  font-size: 0.75rem;
-  color: #ffb08f;
-  margin: 0 0 0.5rem;
-}
-
-.btn {
-  border-radius: 999px;
-  padding: 0.9rem 1.6rem;
-  font-weight: 600;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn--primary {
-  background: linear-gradient(120deg, #4f9cff, #3b6fe1);
-  color: #f5fbff;
-  box-shadow: 0 12px 32px rgba(63, 121, 228, 0.35);
-}
-
-.btn--blue-coral {
-  background: linear-gradient(120deg, #7acbff, #4f9cff);
-  color: #041426;
-  box-shadow: 0 12px 32px rgba(74, 169, 255, 0.25);
-  border: 1px solid rgba(79, 156, 255, 0.4);
-  text-decoration: none;
-}
-
-.btn--blue-coral:focus,
-.btn--blue-coral:active {
-  outline: none;
-}
-
-.btn--secondary {
-  background: rgba(79, 156, 255, 0.15);
-  color: #dfe9ff;
-  border: 1px solid rgba(79, 156, 255, 0.4);
-}
-
-.btn--ghost {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #f8f7f4;
-}
-
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.btn--stack {
-  text-align: center;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  align-items: stretch;
-}
-
-@media (min-width: 960px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr 2fr;
-  }
-
-  .dial-card {
-    max-width: 440px;
-  }
-}
-
-.card {
-  border-radius: 28px;
-  padding: 2rem;
-  background: rgba(12, 14, 19, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* Make the meals and activity cards slightly more compact vertically */
-.meals-card,
-.activity-card {
-  padding: 1.25rem;
-}
-
-.dial-card {
-  min-height: 360px;
-}
-
-.dial-chart {
-  width: 100%;
-  height: 280px;
-}
-
-.dial-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.dial-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-}
-
-.mini-stat {
-  padding: 0.9rem 1.1rem;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.mini-stat__label {
-  margin: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #ffb08f;
-}
-
-.mini-stat__value {
-  margin: 0.35rem 0 0;
-  font-size: 1.6rem;
-  font-weight: 600;
-}
-
-.mini-stat__sub {
-  margin: 0.2rem 0 0;
-  color: #b8b4ad;
-}
-
-.dial-card__note {
-  margin: 0;
-  color: #c5c2bc;
-  font-size: 0.95rem;
-}
-
-.dial-card__note--muted {
-  color: #a7a39b;
-  font-size: 0.9rem;
-}
-
-.macros-card ul,
-.meals-list,
-.activity-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-/* Reserve vertical space for dynamic lists so inserting/removing items doesn't
-   cause the card to resize unexpectedly. Allow scrolling when content grows. */
-.meals-list,
-.activity-list {
-  min-height: 120px; /* reduced to shrink card height */
-  max-height: 420px; /* prevent runaway growth */
-  overflow: auto;
-}
-
-.macros-card ul {
-  /* Increase vertical space so macros are visible without scrolling on
-     typical desktop viewports. Allow the list to expand naturally. */
-  min-height: 220px;
-  max-height: none;
-  overflow: visible;
-}
-
-.macro-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.macro-status {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.macro-status__percent {
-  font-weight: 600;
-  color: #ffc083;
-}
-
-.macro-row__label {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.macro-row__value {
-  margin: 0.2rem 0 0;
-  color: #aea9a0;
-}
-
-.macro-pill {
-  border-radius: 999px;
-  padding: 0.3rem 0.85rem;
-  font-size: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.macro-pill--hit {
-  background: rgba(157, 228, 197, 0.1);
-  border-color: rgba(157, 228, 197, 0.6);
-  color: #9de4c5;
-}
-
-.progress {
-  width: 100%;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.progress span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #ff8367, #ffc083);
-}
-
-.macro-progress {
-  margin-top: 0.4rem;
-}
-
-.macro-dial {
-  display: none;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  align-items: center;
-  justify-content: center;
-  color: #f8f7f4;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  margin-top: 0.75rem;
-}
-
-.weight-card .weight-value {
-  font-size: 1.6rem;
-  font-weight: 700;
-}
-.weight-card .weight-unit {
-  margin-left: 0.35rem;
-  color: #cfcac2;
-}
-.weight-history {
-  list-style: none;
-  padding: 0;
-  margin: 0.75rem 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.weight-history li {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.9rem;
-  color: #c5c2bc;
-}
-.weight-history li strong {
-  color: #f8f7f4;
-  font-weight: 600;
-}
-.weight-card .delta-up {
-  color: #9de4c5;
-}
-.weight-card .delta-down {
-  color: #ff9a9a;
-}
-
-.progress--thick {
-  height: 12px;
-}
-
-.stats-grid {
-  display: grid;
-  /* three equal columns so Sleep, Hydration and Weight sit in a single row;
-     AI copilot will span the full width below */
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.25rem;
-}
-
-.ai-card {
-  gap: 0.5rem;
-  grid-column: 1 / -1; /* span full width under sleep + hydration */
-}
-
-/* Responsive: fall back to 2 columns on medium screens and 1 column on small screens */
-@media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  .ai-card {
-    grid-column: auto;
-  }
-}
-
-/* Make sleep hours large and prominent */
-.sleep-card header h3 {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-.sleep-card .sleep-hours {
-  font-size: 2.2rem;
-  font-weight: 800;
-  line-height: 1;
-}
-.sleep-card .sleep-hours-label {
-  font-size: 1.1rem;
-  color: #b8b4ad;
-}
-
-/* Bottom-justify hydration form */
-.water-card {
-  display: flex;
-  flex-direction: column;
-}
-.water-card .form {
-  margin-top: auto;
-}
-
-/* Bottom-justify weight form so input and button sit at the card bottom */
-.weight-card {
-  display: flex;
-  flex-direction: column;
-}
-.weight-card .form {
-  margin-top: auto;
-}
-
-.card__sub {
-  margin: 0;
-  color: #b8b4ad;
-}
-
-.split-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-.activity-card,
-.meals-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.meals-list li,
-.activity-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.activity-list__details {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  flex-wrap: wrap;
-}
-
-.activity-card .activity-list {
-  flex-grow: 1;
-}
-
-.activity-card .form {
-  margin-top: auto;
-}
-
-/* Reserve space for the meals and activity forms so adding extra inputs doesn't shift layout */
-.meals-card .form {
-  /* Reserve more vertical space for the full meal form (prevents jump when extra rows appear) */
-  min-height: 360px;
-}
-
-.activity-card .form {
-  min-height: 200px;
-}
-
-.form__row {
-  margin-bottom: 10px;
-}
-
-/* Slightly increase horizontal gap between inputs for clearer spacing */
-
-/* Use CSS grid for meal rows so inputs get equal widths and consistent gaps
-   regardless of how many columns are present (2 or 3). This prevents
-   uneven spacing caused by varying input types (time, number, text). */
-.meals-card .form .form__row,
-.custom-form .form__row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1.25rem;
-  align-items: center;
-  min-height: 48px; /* ensure consistent row height */
-}
-
-/* Ensure each input/select/textarea in those meal rows stretches to fill column */
-.meals-card .form .form__row > *,
-.custom-form .form__row > * {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-/* Make textarea a stable size so it doesn't change layout when toggled */
-.duke-form textarea {
-  min-height: 64px;
-}
-
-.duke-form__time-note {
-  border: 1px dashed rgba(255, 255, 255, 0.18);
-  border-radius: 12px;
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  color: #c5c2bc;
-}
-
-.duke-form__time-note p {
-  margin: 0;
-  font-weight: 600;
-  color: #f8f7f4;
-}
-
-.duke-form__time-note span {
-  font-size: 0.85rem;
-  color: #a7a39b;
-}
-
-/* Ensure meals card behaves the same as activity: the list grows and the form
-   is anchored to the bottom so there's no awkward gap under inputs */
-.meals-card {
-  min-height: 0; /* allow card to shrink below content if necessary */
-}
-.activity-card {
-  min-height: 0;
-}
-.meals-card .meals-list {
-  flex-grow: 1;
-}
-.meals-card .form {
-  margin-top: auto;
-}
-
-.meals-list__time,
-.meals-list__meta,
-.activity-list__meta {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #a7a39b;
-}
-
-.meals-list__name,
-.activity-list__name {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.meals-list__calories,
-.activity-list__calories {
-  margin: 0;
-  color: #ffc083;
-  font-weight: 600;
-}
-
-.meals-list__macros {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: #c5c2bc;
-}
-
-.meals-list__info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.meals-list__stats {
-  text-align: right;
-}
-
-.activity-pill {
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.activity-pill--planned {
-  border-color: rgba(79, 172, 254, 0.8);
-  color: #4facfe;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem; /* increased vertical spacing between form rows */
-  margin-top: 0.5rem;
-}
-
-.form__row--date-note {
-  align-items: stretch;
-}
-
-.form__actions {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-  justify-content: flex-start;
-  margin-top: 0.25rem;
-  align-items: center;
-}
-
-/* Make action buttons share the full row equally (50/50) */
-.form__actions > * {
-  flex: 1 1 0;
-  min-width: 0; /* allow shrinking inside gap */
-}
-.form__actions .btn {
-  width: 100%;
-  height: 40px; /* match input height for visual alignment */
-  padding: 0 0.75rem;
-}
-
-.date-note {
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 0.5rem 0.9rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 150px;
-}
-
-.date-note span {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.7rem;
-  color: #b8b4ad;
-}
-
-.date-note strong {
-  margin-top: 0.2rem;
-  font-size: 1rem;
-  color: #f8f7f4;
-}
-
-.list-placeholder {
-  padding: 0.35rem 0;
-  color: #a7a39b;
-  font-style: italic;
-  display: block;
-  border-bottom: none;
-}
-
-.icon-button {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f8f7f4;
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-  cursor: pointer;
-}
-
-.chip-button {
-  background: rgba(79, 156, 255, 0.18);
-  border-radius: 999px;
-  border: 1px solid rgba(79, 156, 255, 0.4);
-  color: #dfe9ff;
-  padding: 0.2rem 0.8rem;
-  font-size: 0.85rem;
-}
-
-.meal-source-step {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.meal-source-step__title {
-  margin: 0;
-  font-weight: 600;
-}
-
-.meal-source-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.75rem;
-}
-
-.source-option {
-  border-radius: 18px;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.03);
-  color: #f8f7f4;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  cursor: pointer;
-}
-
-.source-option span {
-  font-size: 0.85rem;
-  color: #b8b4ad;
-}
-
-.source-option.active {
-  border-color: rgba(79, 156, 255, 0.8);
-  background: rgba(79, 156, 255, 0.15);
-}
-
-.meal-detail-header {
-  align-items: center;
-  justify-content: space-between;
-}
-
-.duke-form textarea {
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f8f7f4;
-  padding: 0.85rem 1rem;
-  font-size: 0.95rem;
-  resize: vertical;
-}
-
-.duke-form textarea::placeholder {
-  color: rgba(248, 247, 244, 0.6);
-}
-
-.btn--ai {
-  background: linear-gradient(
-    120deg,
-    #ff7a9a,
-    #ffb86b
-  ); /* standout warm gradient */
-  color: #ffffff !important;
-  box-shadow: 0 12px 32px rgba(255, 138, 121, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  text-decoration: none; /* remove underline */
-}
-
-.form__actions--single {
-  justify-content: flex-end;
-}
-
-/* Skeleton / placeholder helper so you can show reserved slots while data loads */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.03),
-    rgba(255, 255, 255, 0.06)
-  );
-  border-radius: 8px;
-  height: 48px;
-}
-
-.form__row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-/* Ensure each input in a row shares available space and stretches to the same height
-   so inputs across sibling cards align vertically */
-.form__row > * {
-  flex: 1 1 0;
-  min-width: 0;
-  display: block;
-}
-
-/* Consistent, slightly smaller input/select height to reduce vertical footprint */
-input,
-select {
-  height: 40px;
-}
-
-.form__row--compact {
-  align-items: stretch;
-}
-
-input,
-select {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f8f7f4;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.92rem;
-  box-sizing: border-box;
-}
-
-input::placeholder {
-  color: rgba(248, 247, 244, 0.6);
-}
-
-input:focus,
-select:focus {
-  outline: 2px solid #ff8367;
-  outline-offset: 1px;
-}
-
-select {
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, #f8f7f4 50%),
-    linear-gradient(135deg, #f8f7f4 50%, transparent 50%);
-  background-position: calc(100% - 20px) calc(50% - 3px),
-    calc(100% - 15px) calc(50% - 3px);
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-  padding-right: 2.5rem;
-}
-
-@media (max-width: 640px) {
-  .form__row {
-    flex-direction: column;
-  }
-
-  .intro {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .day-selector {
-    width: 100%;
-  }
-
-  .btn {
-    width: 100%;
-    text-align: center;
-  }
-
-  .macro-progress {
-    display: none;
-  }
-
-  .macro-dial {
-    display: flex;
-    margin-left: auto;
-  }
-}
-</style>
+<style scoped src="./dashboard.css"></style>

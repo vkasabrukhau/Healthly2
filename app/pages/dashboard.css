@@ -1,3 +1,11 @@
+:global(body) {
+  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  margin: 0;
+  background: #05070a;
+  color: #f8f7f4;
+}
+
 .page {
   min-height: 100vh;
   padding: 64px clamp(1.25rem, 5vw, 5rem) 96px;
@@ -37,17 +45,53 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(2);
 }
 
-.day-selector label {
+.mealplan-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.mealplan-label {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.7rem;
-  color: #ffb08f;
+  color: #ffb08f; /* match viewing date label color */
 }
 
 .header-controls {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.plan-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.plan-buttons .btn {
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f8f7f4;
+}
+
+/* Subtle blue hue for the selected plan button */
+.plan-buttons .btn.active {
+  background: linear-gradient(120deg, #4facfe, #3b82f6);
+  color: white;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.day-selector label {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #ffb08f;
 }
 
 .eyebrow,
@@ -100,7 +144,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .btn--ghost {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.12);
   color: #f8f7f4;
 }
 
@@ -304,19 +348,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-top: 0.75rem;
 }
 
-.macro-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-top: 1rem;
-}
-
-.completion-hint {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #c7c3bb;
-}
-
 .weight-card .weight-value {
   font-size: 1.6rem;
   font-weight: 700;
@@ -324,6 +355,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .weight-card .weight-unit {
   margin-left: 0.35rem;
   color: #cfcac2;
+}
+.weight-history {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.weight-history li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #c5c2bc;
+}
+.weight-history li strong {
+  color: #f8f7f4;
+  font-weight: 600;
 }
 .weight-card .delta-up {
   color: #9de4c5;
@@ -381,12 +430,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #b8b4ad;
 }
 
-.water-card,
+/* Bottom-justify hydration form */
+.water-card {
+  display: flex;
+  flex-direction: column;
+}
+.water-card .form {
+  margin-top: auto;
+}
+
+/* Bottom-justify weight form so input and button sit at the card bottom */
 .weight-card {
   display: flex;
   flex-direction: column;
 }
-.water-card .form,
 .weight-card .form {
   margin-top: auto;
 }
@@ -474,6 +531,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Make textarea a stable size so it doesn't change layout when toggled */
 .duke-form textarea {
   min-height: 64px;
+}
+
+.duke-form__time-note {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  color: #c5c2bc;
+}
+
+.duke-form__time-note p {
+  margin: 0;
+  font-weight: 600;
+  color: #f8f7f4;
+}
+
+.duke-form__time-note span {
+  font-size: 0.85rem;
+  color: #a7a39b;
 }
 
 /* Ensure meals card behaves the same as activity: the list grows and the form
@@ -796,75 +874,5 @@ select {
   .macro-dial {
     display: flex;
     margin-left: auto;
-  }
-}
-
-@media (max-width: 1024px) {
-  .page {
-    padding: 48px clamp(1.25rem, 6vw, 3rem) 72px;
-  }
-
-  .header-controls {
-    flex-direction: column;
-    align-items: flex-start;
-    width: 100%;
-  }
-
-  .header-controls > * {
-    width: 100%;
-  }
-
-  .plan-buttons {
-    flex-wrap: wrap;
-    width: 100%;
-  }
-
-  .plan-buttons .btn {
-    flex: 1 1 30%;
-    min-width: 120px;
-    text-align: center;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 840px) {
-  .meals-card .form .form__row,
-  .custom-form .form__row {
-    grid-template-columns: 1fr;
-    grid-auto-flow: row;
-  }
-
-  .meals-list li,
-  .activity-list li {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .activity-list__details {
-    flex-direction: column;
-    align-items: flex-start;
-    width: 100%;
-  }
-
-  .macro-actions {
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 540px) {
-  .plan-buttons .btn {
-    flex: 1 1 45%;
-  }
-
-  .macros-card header,
-  .macros-card ul {
-    width: 100%;
-  }
-
-  .macro-actions {
-    align-items: flex-start;
   }
 }
