@@ -17,6 +17,7 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@types/node": "^24.10.1",
     "nuxt-echarts": "^1.0.1"
   }
