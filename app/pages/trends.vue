@@ -374,45 +374,5 @@ useHead({ title: "Healthly | Trends" });
   </div>
 </template>
 
-<style scoped>
-.page {
-  min-height: 100vh;
-  padding: 64px clamp(1.25rem, 5vw, 5rem) 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 56px;
-}
-.trends-page .intro {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
+<style scoped src="./trends.css"></style>
 
-/* meal plan control styles moved to dashboard page */
-
-.trends-grid {
-  margin-top: 1.25rem;
-  /* Stack charts vertically and make each chart full-width */
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.trend-chart {
-  width: 100%;
-  height: 360px; /* increased height for full-width visuals */
-}
-
-.chart-card {
-  width: 100%;
-  min-height: 420px;
-}
-
-@media (max-width: 640px) {
-  .trends-page .intro {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>

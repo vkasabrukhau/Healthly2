@@ -7,6 +7,7 @@ const mongoDbName =
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
+  css: ["~/assets/css/base.css"],
   modules: ["@clerk/nuxt", "nuxt-echarts"],
   runtimeConfig: {
     // Server-only secrets
